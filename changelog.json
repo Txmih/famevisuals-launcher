@@ -1,0 +1,74 @@
+[
+  {
+    "version": "v2.1.0",
+    "date": "2026-11-14",
+    "isLatest": true,
+    "title": {
+      "en": "PvP Polish & Official Desktop Launcher",
+      "ru": "PvP-обновление и официальный лаунчер",
+      "pl": "Aktualizacja PvP i oficjalny launcher"
+    },
+    "changes": [
+      {
+        "category": "NEW",
+        "text": {
+          "en": "FameVisuals Desktop Launcher: automatic modpack synchronization, Modrinth 1.21.11 browser, RAM slider, custom wallpapers and Tauri self-updater.",
+          "ru": "Официальный лаунчер FameVisuals: автосинхронизация модов с GitHub, установка модов с Modrinth на 1.21.11, настройка ОЗУ, кастомный фон и автообновление лаунчера.",
+          "pl": "Oficjalny launcher FameVisuals: automatyczna synchronizacja paczki modów, wyszukiwarka Modrinth 1.21.11, suwak RAM, własne tło i auto-aktualizacje."
+        }
+      },
+      {
+        "category": "NEW",
+        "text": {
+          "en": "Added PearlPeek wall vision when throwing Ender Pearls into blocks, plus separate Slot Lock protection for Spheres, Mace, Elytra and Enchanted Golden Apples.",
+          "ru": "Добавлен PearlPeek (просвет при броске эндер-пёрла в блок) и раздельная блокировка выбрасывания для шаров, булавы, элитр и чар-яблок.",
+          "pl": "Dodano funkcję PearlPeek podczas rzutu perłą w blok oraz oddzielną blokadę wyrzucania dla kul, buławy, elytry i koksów."
+        }
+      },
+      {
+        "category": "FIX",
+        "text": {
+          "en": "Fixed KillEffects detection across crystals, mace, bows, potions and knockback; CrystalVisual now renders a rising 3D ghost crystal on explosion.",
+          "ru": "Исправлено срабатывание KillEffects от кристаллов, булавы, лука, зелий и откидывания; в CrystalVisual добавлен 3D-призрак кристалла, улетающий вверх при взрыве.",
+          "pl": "Naprawiono wykrywanie KillEffects przy kryształach, buławie, łuku, miksturach i odrzuceniu; CrystalVisual wyświetla unoszący się kryształ 3D po wybuchu."
+        }
+      },
+      {
+        "category": "FIX",
+        "text": {
+          "en": "Fixed BowOptimizer instant release shot logic, CustomHitbox #000000 pitch-black color rendering, ClickGUI/HUD chat position reset, and ReallyWorld 90s Earth Sphere timer.",
+          "ru": "Исправлен BowOptimizer для моментального выстрела, корректный чёрный цвет #000000 в CustomHitbox, сброс позиции HUD при открытии чата и таймер Шара Земли (90 сек) на ReallyWorld.",
+          "pl": "Naprawiono szybkie strzelanie w BowOptimizer, czarny kolor #000000 w CustomHitbox, reset pozycji HUD na czacie oraz 90-sekundowy licznik Kuli Ziemi na ReallyWorld."
+        }
+      },
+      {
+        "category": "IMPROVED",
+        "text": {
+          "en": "Added Elytra notification to Item Pickup, Tab-autocomplete & click-to-copy in Friends, Server Icon circular badge + 1.21.11 Fabric status in Discord RPC, and removed uk_ua locale.",
+          "ru": "Добавлено уведомление о подборе элитр в Item Pickup, автодополнение по Tab и копирование ников в Friends, иконка сервера в Discord RPC и оставлены только EN/RU/PL языки.",
+          "pl": "Dodano powiadomienia o podniesieniu Elytry w Item Pickup, autouzupełnianie Tab w Friends oraz ikonę serwera w Discord RPC (obsługa EN/RU/PL)."
+        }
+      }
+    ]
+  },
+  {
+    "version": "v2.0.0",
+    "date": "2026-11-01",
+    "isLatest": false,
+    "title": {
+      "en": "Migration to Minecraft 1.21.11 Fabric",
+      "ru": "Переход на Minecraft 1.21.11 Fabric",
+      "pl": "Migracja na Minecraft 1.21.11 Fabric"
+    },
+    "changes": [
+      {
+        "category": "NEW",
+        "text": {
+          "en": "Full FameVisuals PvP client release on Minecraft 1.21.11 with ClickGUI, HUD Editor, ViewModel, CustomHitbox, Friends and ReallyWorld event tracker.",
+          "ru": "Полноценный релиз клиента FameVisuals на Minecraft 1.21.11 с ClickGUI, редактором HUD, ViewModel, CustomHitbox, списком друзей и трекером ивентов ReallyWorld.",
+          "pl": "Pełna premiera klienta FameVisuals na Minecraft 1.21.11 z ClickGUI, edytorem HUD, ViewModel, CustomHitbox, listą znajomych i trackerem wydarzeń ReallyWorld."
+        }
+      }
+    ]
+  }
+]
