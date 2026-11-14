@@ -1,11 +1,11 @@
 {
   "version": "1.2.0",
-  "notes": "FameVisuals Launcher v1.2.0 — Initial release for Minecraft 1.21.11 (Fabric) with automatic modpack sync and Modrinth browser.",
-  "pub_date": "2026-11-14T16:42:00Z",
+  "notes": "FameLauncher v1.2.0 — Dark grey UI theme, custom startup splash screen, Microsoft account login, custom Fame icon, and LWJGL 3.3.3 x64 natives fix for Minecraft 1.21.11 (Fabric).",
+  "pub_date": "2026-11-14T17:34:00Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUSnNLUm5PUFd3RVBMVjFyNDcrUGpIbEZ1bi9veU4vdCtrOWo1VEkvQTk5bXpwK3JURnpsRUlhVkMrelRoV0x1Ynp1Z1ZMenFiU2R0bzFHU3N1dW5pTUtveUEwU3ZDUWdRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0Njc0NTE0CWZpbGU6RmFtZVZpc3VhbHMgTGF1bmNoZXJfMS4yLjBfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjEuMi4wCmQwamtPb3hDUjdFdGRiYWFHaWVhV1c3RTZ4dU9mYit6YjhXNVFtRXlRQ29tR2RKeHhRL2IzeWJVeHR3WGVEWHkyUHdrbkhoYVJNUzg5RWVTdTcxQUN3PT0K",
-      "url": "https://github.com/Txmih/famevisuals-launcher/releases/download/v1.2.0/FameVisuals.Launcher_1.2.0_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUSnNLUm5PUFd3RUN0bDFtTURsbytnS3haWksyRDVuNjJoQWZFNTNwMEtCWUZrd2JjbXRMYklXWlBYcmdPVmdkQWtLL0cyRHNqOHhvSDdWMTIyWGF4MW1KbGFYNWJwWkFBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0Njc3NjQwCWZpbGU6RmFtZUxhdW5jaGVyXzEuMi4wX3g2NC1zZXR1cC5leGUJdmVyc2lvbjoxLjIuMAorNTlxK3dnTHRhZlhscDBYR3BCZ0ZuN1BxN1NiODBLRHlESW9NNml4cis3aG55SmdCWjNIWUU0RG9nVEoyODc1UlZNeTI4ZWEvS01RcEJrbWFYc2VBQT09Cg==",
+      "url": "https://github.com/Txmih/famevisuals-launcher/releases/download/v1.2.0/FameLauncher_1.2.0_x64-setup.exe"
     }
   }
 }

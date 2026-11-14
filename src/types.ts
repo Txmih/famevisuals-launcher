@@ -2,12 +2,26 @@ export type Language = "en" | "ru" | "pl";
 
 export type TabId = "home" | "mods" | "changelog" | "settings";
 
+export type AccountType = "offline" | "microsoft";
+
 export interface LauncherSettings {
   nickname: string;
   ramMb: number;
   gameDir: string;
   language: Language;
   customWallpaper?: string | null;
+  accountType?: AccountType;
+  msUsername?: string | null;
+  msUuid?: string | null;
+  msAccessToken?: string | null;
+  msRefreshToken?: string | null;
+}
+
+export interface MicrosoftAccountProfile {
+  username: string;
+  uuid: string;
+  accessToken: string;
+  refreshToken: string;
 }
 
 export interface SystemInfo {

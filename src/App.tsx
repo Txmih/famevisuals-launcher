@@ -22,6 +22,7 @@ import {
   Image as ImageIcon,
   Languages,
   Loader2,
+  LogOut,
   MessageCircle,
   Minus,
   Package,
@@ -32,19 +33,21 @@ import {
   Send,
   Settings,
   ShieldCheck,
-  Sparkles,
   Trash2,
   User,
   Wrench,
   X,
 } from "lucide-react";
+import logoImg from "./assets/logo.png";
 import { TRANSLATIONS } from "./i18n";
 import type {
+  AccountType,
   ChangelogEntry,
   InstalledMod,
   Language,
   LauncherSettings,
   LaunchProgressPayload,
+  MicrosoftAccountProfile,
   ModrinthProject,
   SystemInfo,
   TabId,
@@ -79,6 +82,11 @@ const DEFAULT_SETTINGS: LauncherSettings = {
   gameDir: "",
   language: "ru",
   customWallpaper: null,
+  accountType: "offline",
+  msUsername: null,
+  msUuid: null,
+  msAccessToken: null,
+  msRefreshToken: null,
 };
 
 const CATEGORY_STYLES: Record<
@@ -96,11 +104,22 @@ const CATEGORY_STYLES: Record<
     border: "border-amber-500/30",
   },
   IMPROVED: {
-    bg: "bg-violet-500/15",
-    text: "text-violet-300",
-    border: "border-violet-500/30",
+    bg: "bg-zinc-500/20",
+    text: "text-zinc-200",
+    border: "border-zinc-400/35",
   },
 };
+
+function MicrosoftLogoIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 21 21" fill="none" className={className} aria-hidden="true">
+      <rect x="1" y="1" width="9" height="9" fill="#F25022" />
+      <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
+      <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
+      <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
+    </svg>
+  );
+}
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -119,6 +138,11 @@ export function App() {
   const [activeTab, setActiveTab] = useState<TabId>("home");
   const [modsSubTab, setModsSubTab] = useState<"installed" | "modrinth">("installed");
 
+  // Custom Launcher Splash Screen State
+  const [booting, setBooting] = useState(true);
+  const [bootPercent, setBootPercent] = useState(14);
+  const [bootStage, setBootStage] = useState<"core" | "profile" | "ready">("core");
+
   const [systemInfo, setSystemInfo] = useState<SystemInfo>({
     totalRamMb: 16384,
     defaultGameDir: "",
@@ -128,6 +152,7 @@ export function App() {
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   const [avatarError, setAvatarError] = useState(false);
+  const [msLoggingIn, setMsLoggingIn] = useState(false);
 
   const [installedMods, setInstalledMods] = useState<InstalledMod[]>([]);
   const [modsLoading, setModsLoading] = useState(false);
@@ -249,32 +274,57 @@ export function App() {
     [settings.language, showToast]
   );
 
-  // Initial boot: load system info, settings, installed mods, changelog & updater check
+  // Initial boot with custom startup loading sequence
   useEffect(() => {
     let unlistenProgress: (() => void) | null = null;
+    let mounted = true;
 
     const init = async () => {
+      const startTime = Date.now();
+      setBootStage("core");
+      setBootPercent(28);
+
       try {
         const [sys, loaded] = await Promise.all([
           invoke<SystemInfo>("get_system_info"),
           invoke<LauncherSettings>("load_settings"),
         ]);
+        if (!mounted) return;
+
+        setBootStage("profile");
+        setBootPercent(66);
+
         setSystemInfo(sys);
         const merged: LauncherSettings = {
           ...DEFAULT_SETTINGS,
           ...loaded,
           gameDir: loaded.gameDir || sys.defaultGameDir,
           ramMb: Math.min(Math.max(loaded.ramMb || 4096, 1024), sys.totalRamMb),
+          accountType: loaded.accountType === "microsoft" ? "microsoft" : "offline",
         };
         setSettings(merged);
         setSettingsLoaded(true);
 
-        void refreshInstalledMods(merged.gameDir);
-        void refreshChangelog(merged.gameDir);
+        await Promise.all([
+          refreshInstalledMods(merged.gameDir),
+          refreshChangelog(merged.gameDir),
+        ]);
         void runUpdaterCheck(false);
       } catch (err) {
         console.error("Initialization error:", err);
-        setSettingsLoaded(true);
+        if (mounted) {
+          setSettingsLoaded(true);
+        }
+      } finally {
+        if (mounted) {
+          setBootStage("ready");
+          setBootPercent(100);
+          const elapsed = Date.now() - startTime;
+          const remaining = Math.max(0, 1350 - elapsed);
+          window.setTimeout(() => {
+            if (mounted) setBooting(false);
+          }, remaining);
+        }
       }
     };
 
@@ -282,9 +332,7 @@ export function App() {
 
     void listen<LaunchProgressPayload>("launch-progress", (event) => {
       setLaunchProgress(event.payload);
-      if (event.payload.stage === "ready") {
-        setLaunching(false);
-      } else if (event.payload.stage === "error") {
+      if (event.payload.stage === "ready" || event.payload.stage === "error") {
         setLaunching(false);
       }
     }).then((unlisten) => {
@@ -292,6 +340,7 @@ export function App() {
     });
 
     return () => {
+      mounted = false;
       if (unlistenProgress) unlistenProgress();
     };
   }, [refreshChangelog, refreshInstalledMods, runUpdaterCheck]);
@@ -310,7 +359,7 @@ export function App() {
       const url = `https://api.modrinth.com/v2/search?facets=${facets}&index=downloads&limit=24${qParam}`;
       const res = await fetch(url, {
         headers: {
-          "User-Agent": "FameVisuals-Launcher/1.2.0 (github.com/Txmih/famevisuals-launcher)",
+          "User-Agent": "FameLauncher/1.2.0 (github.com/Txmih/famevisuals-launcher)",
         },
       });
       if (!res.ok) throw new Error(`Modrinth HTTP ${res.status}`);
@@ -346,7 +395,7 @@ export function App() {
       const url = `https://api.modrinth.com/v2/project/${project.project_id}/version?loaders=${loaders}&game_versions=${versions}`;
       const res = await fetch(url, {
         headers: {
-          "User-Agent": "FameVisuals-Launcher/1.2.0 (github.com/Txmih/famevisuals-launcher)",
+          "User-Agent": "FameLauncher/1.2.0 (github.com/Txmih/famevisuals-launcher)",
         },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -437,8 +486,51 @@ export function App() {
     }
   };
 
+  const handleMicrosoftLogin = async () => {
+    if (msLoggingIn) return;
+    setMsLoggingIn(true);
+    try {
+      const profile = await invoke<MicrosoftAccountProfile>("login_microsoft");
+      setAvatarError(false);
+      updateSettings({
+        accountType: "microsoft",
+        msUsername: profile.username,
+        msUuid: profile.uuid,
+        msAccessToken: profile.accessToken,
+        msRefreshToken: profile.refreshToken,
+      });
+      showToast(`${t.msLoginSuccess} ${profile.username}`, "success");
+    } catch (err) {
+      showToast(String(err), "error");
+    } finally {
+      setMsLoggingIn(false);
+    }
+  };
+
+  const handleMicrosoftLogout = () => {
+    setAvatarError(false);
+    updateSettings({
+      msUsername: null,
+      msUuid: null,
+      msAccessToken: null,
+      msRefreshToken: null,
+    });
+  };
+
+  const handleSwitchAccountType = (type: AccountType) => {
+    setAvatarError(false);
+    updateSettings({ accountType: type });
+  };
+
   const handleLaunchGame = async () => {
     if (launching || !settingsLoaded) return;
+
+    const isMs = settings.accountType === "microsoft";
+    if (isMs && !settings.msAccessToken) {
+      showToast(t.msNotSignedInHint, "error");
+      return;
+    }
+
     const cleanNick = settings.nickname.trim() || "FamePlayer";
     if (cleanNick !== settings.nickname) {
       updateSettings({ nickname: cleanNick });
@@ -457,6 +549,10 @@ export function App() {
       await invoke("launch_game", {
         settings: { ...settings, nickname: cleanNick },
       });
+      if (isMs) {
+        const reloaded = await invoke<LauncherSettings>("load_settings");
+        setSettings((prev) => ({ ...prev, ...reloaded }));
+      }
       await refreshInstalledMods(settings.gameDir);
       showToast(t.gameRunningStatus, "success");
     } catch (err) {
@@ -555,41 +651,54 @@ export function App() {
       { id: "settings", label: t.navSettings, icon: Settings },
     ];
 
+  const isMicrosoftMode = settings.accountType === "microsoft";
+  const isMsSignedIn = Boolean(settings.msUsername && settings.msAccessToken);
   const cleanNick = settings.nickname.trim() || "Steve";
-  const avatarSrc = `https://mc-heads.net/avatar/${encodeURIComponent(cleanNick)}/64`;
+  const activeAvatarKey =
+    isMicrosoftMode && isMsSignedIn
+      ? settings.msUuid || settings.msUsername || "Steve"
+      : cleanNick;
+  const avatarSrc = `https://mc-heads.net/avatar/${encodeURIComponent(activeAvatarKey)}/64`;
+
+  const bootText =
+    bootStage === "core"
+      ? t.splashInitCore
+      : bootStage === "profile"
+        ? t.splashLoadingProfile
+        : t.splashReady;
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden rounded-2xl border border-white/10 bg-[#09090f] text-white shadow-2xl">
-      {/* Background Layer: Custom Wallpaper OR Deep Obsidian Animated Cyber Gradient */}
+    <div className="relative h-screen w-screen overflow-hidden rounded-2xl border border-white/10 bg-[#0e0e11] text-white shadow-2xl">
+      {/* Background Layer: Custom Wallpaper OR Sleek Dark Grey Graphite Theme */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         {wallpaperUrl ? (
           <>
             <img
               src={wallpaperUrl}
               alt=""
-              className="h-full w-full object-cover opacity-45 scale-105"
+              className="h-full w-full scale-105 object-cover opacity-40"
             />
-            <div className="absolute inset-0 bg-gradient-to-br from-[#09090f]/85 via-[#09090f]/65 to-[#09090f]/95" />
+            <div className="absolute inset-0 bg-gradient-to-br from-[#0e0e11]/90 via-[#121215]/72 to-[#0b0b0d]/95" />
           </>
         ) : (
           <>
-            <div className="absolute inset-0 bg-[#09090f]" />
-            <div className="cyber-grid absolute inset-0 opacity-70" />
+            <div className="absolute inset-0 bg-gradient-to-br from-[#0d0d10] via-[#131317] to-[#0a0a0c]" />
+            <div className="cyber-grid absolute inset-0 opacity-75" />
             <motion.div
               animate={{
-                scale: [1, 1.12, 1],
-                opacity: [0.32, 0.48, 0.32],
+                scale: [1, 1.1, 1],
+                opacity: [0.16, 0.28, 0.16],
               }}
               transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute -left-24 -top-24 h-[460px] w-[460px] rounded-full bg-violet-600/30 blur-[120px]"
+              className="absolute -left-24 -top-24 h-[460px] w-[460px] rounded-full bg-zinc-400/20 blur-[130px]"
             />
             <motion.div
               animate={{
-                scale: [1.1, 0.96, 1.1],
-                opacity: [0.24, 0.4, 0.24],
+                scale: [1.08, 0.96, 1.08],
+                opacity: [0.14, 0.24, 0.14],
               }}
               transition={{ duration: 11, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute -bottom-32 right-0 h-[500px] w-[500px] rounded-full bg-indigo-600/25 blur-[130px]"
+              className="absolute -bottom-32 right-0 h-[500px] w-[500px] rounded-full bg-neutral-500/20 blur-[140px]"
             />
           </>
         )}
@@ -597,29 +706,92 @@ export function App() {
           className="absolute inset-0"
           style={{
             background:
-              "radial-gradient(circle at 50% 45%, transparent 25%, rgba(9, 9, 15, 0.72) 100%)",
+              "radial-gradient(circle at 50% 45%, transparent 25%, rgba(10, 10, 12, 0.78) 100%)",
           }}
         />
       </div>
+
+      {/* Custom Animated Startup Splash Screen */}
+      <AnimatePresence>
+        {booting && (
+          <motion.div
+            key="splash-screen"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0, scale: 1.02 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center rounded-2xl bg-[#0d0d10]"
+          >
+            {/* Top drag strip so splash window is movable */}
+            <div data-tauri-drag-region className="absolute inset-x-0 top-0 h-12" />
+
+            <div className="cyber-grid pointer-events-none absolute inset-0 opacity-70" />
+            <div className="pointer-events-none absolute h-80 w-80 rounded-full bg-zinc-400/10 blur-[110px]" />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.45 }}
+              className="relative flex flex-col items-center text-center"
+            >
+              <div className="relative flex h-28 w-28 items-center justify-center rounded-3xl border border-white/15 bg-[#16161b] p-2 shadow-[0_0_50px_rgba(0,0,0,0.85)]">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+                  className="pointer-events-none absolute -inset-1 rounded-[26px] border border-dashed border-white/20"
+                />
+                <img
+                  src={logoImg}
+                  alt="FameLauncher"
+                  className="h-full w-full rounded-2xl object-cover"
+                />
+              </div>
+
+              <h2 className="mt-6 bg-gradient-to-r from-white via-zinc-200 to-zinc-500 bg-clip-text text-2xl font-black tracking-[0.28em] text-transparent">
+                FAMELAUNCHER
+              </h2>
+              <p className="mt-1.5 text-[11px] font-medium tracking-[0.22em] text-zinc-400">
+                MINECRAFT 1.21.11 • FABRIC CLIENT
+              </p>
+
+              <div className="mt-7 w-72 space-y-2">
+                <div className="h-1.5 w-full overflow-hidden rounded-full border border-white/10 bg-zinc-900">
+                  <motion.div
+                    className="h-full rounded-full bg-gradient-to-r from-zinc-500 via-zinc-200 to-white"
+                    initial={{ width: "8%" }}
+                    animate={{ width: `${bootPercent}%` }}
+                    transition={{ duration: 0.45, ease: "easeInOut" }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                  <span>{bootText}</span>
+                  <span className="font-mono text-zinc-300">{bootPercent}%</span>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main Window Shell */}
       <div className="relative z-10 flex h-full flex-col">
         {/* Custom Frameless Titlebar */}
         <header
           data-tauri-drag-region
-          className="flex h-12 shrink-0 items-center justify-between border-b border-white/[0.06] bg-black/25 px-4 backdrop-blur-md"
+          className="flex h-12 shrink-0 items-center justify-between border-b border-white/[0.08] bg-[#131316]/85 px-4 backdrop-blur-md"
         >
           <div data-tauri-drag-region className="flex items-center gap-3">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 shadow-lg shadow-violet-600/30">
-              <Sparkles className="h-4 w-4 text-white" />
-            </div>
+            <img
+              src={logoImg}
+              alt="FameLauncher"
+              className="h-7 w-7 rounded-lg border border-white/15 object-cover shadow-md"
+            />
             <span
               data-tauri-drag-region
-              className="text-xs font-bold tracking-[0.18em] text-white/90"
+              className="text-xs font-bold tracking-[0.2em] text-zinc-100"
             >
-              FAMEVISUALS LAUNCHER
+              FAMELAUNCHER
             </span>
-            <span className="rounded-full border border-violet-500/30 bg-violet-500/15 px-2 py-0.5 text-[10px] font-semibold text-violet-300">
+            <span className="rounded-full border border-white/15 bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-zinc-300">
               v{systemInfo.launcherVersion}
             </span>
           </div>
@@ -629,7 +801,7 @@ export function App() {
               type="button"
               onClick={() => void runUpdaterCheck(true)}
               disabled={checkingUpdater}
-              className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-medium text-white/75 transition hover:border-violet-400/40 hover:bg-white/[0.08] hover:text-white disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[11px] font-medium text-zinc-300 transition hover:border-white/25 hover:bg-white/[0.1] hover:text-white disabled:opacity-50"
             >
               <RefreshCw className={`h-3 w-3 ${checkingUpdater ? "animate-spin" : ""}`} />
               <span>{checkingUpdater ? t.checkingUpdates : t.checkUpdatesBtn}</span>
@@ -639,7 +811,7 @@ export function App() {
               type="button"
               onClick={() => void handlePickWallpaper()}
               title={t.settingsWallpaperTitle}
-              className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-white/70 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/[0.05] text-zinc-300 transition hover:border-white/25 hover:bg-white/10 hover:text-white"
             >
               <ImageIcon className="h-3.5 w-3.5" />
             </button>
@@ -649,7 +821,7 @@ export function App() {
             <button
               type="button"
               onClick={() => void getCurrentWindow().minimize()}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-white/65 transition hover:bg-white/10 hover:text-white"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-white/10 hover:text-white"
               aria-label="Minimize"
             >
               <Minus className="h-4 w-4" />
@@ -657,7 +829,7 @@ export function App() {
             <button
               type="button"
               onClick={() => void getCurrentWindow().close()}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-white/65 transition hover:bg-rose-500/80 hover:text-white"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-rose-500/80 hover:text-white"
               aria-label="Close"
             >
               <X className="h-4 w-4" />
@@ -668,7 +840,7 @@ export function App() {
         {/* Body Layout: Sidebar + Tab Content */}
         <div className="flex min-h-0 flex-1">
           {/* Left Glass Sidebar */}
-          <aside className="flex w-52 shrink-0 flex-col justify-between border-r border-white/[0.06] bg-black/25 p-3 backdrop-blur-xl">
+          <aside className="flex w-52 shrink-0 flex-col justify-between border-r border-white/[0.07] bg-[#121215]/75 p-3 backdrop-blur-xl">
             <nav className="flex flex-col gap-1.5 pt-2">
               {navItems.map((item) => {
                 const Icon = item.icon;
@@ -681,19 +853,19 @@ export function App() {
                     className={`relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition ${
                       active
                         ? "text-white"
-                        : "text-white/55 hover:bg-white/[0.04] hover:text-white/85"
+                        : "text-zinc-400 hover:bg-white/[0.05] hover:text-zinc-200"
                     }`}
                   >
                     {active && (
                       <motion.div
                         layoutId="sidebar-active-pill"
                         transition={{ type: "spring", stiffness: 360, damping: 28 }}
-                        className="absolute inset-0 rounded-xl border border-violet-400/35 bg-gradient-to-r from-violet-600/25 to-indigo-600/15 shadow-inner"
+                        className="absolute inset-0 rounded-xl border border-white/15 bg-gradient-to-r from-zinc-700/55 to-zinc-800/35 shadow-inner"
                       />
                     )}
                     <Icon
                       className={`relative z-10 h-4 w-4 ${
-                        active ? "text-violet-300" : "text-white/50"
+                        active ? "text-zinc-100" : "text-zinc-500"
                       }`}
                     />
                     <span className="relative z-10">{item.label}</span>
@@ -702,12 +874,12 @@ export function App() {
               })}
             </nav>
 
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3">
+            <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-3">
               <div className="flex items-center gap-2 text-xs font-medium text-emerald-300">
                 <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" />
                 <span>{t.statusOnline}</span>
               </div>
-              <p className="mt-1.5 truncate text-[11px] text-white/45" title={settings.gameDir}>
+              <p className="mt-1.5 truncate text-[11px] text-zinc-500" title={settings.gameDir}>
                 {settings.gameDir || "..."}
               </p>
             </div>
@@ -726,23 +898,23 @@ export function App() {
                   className="flex h-full flex-col justify-between gap-6"
                 >
                   {/* Top & Center Split: Hero + Profile Card */}
-                  <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-center pt-2">
+                  <div className="grid grid-cols-1 gap-6 pt-2 lg:grid-cols-12 lg:items-center">
                     {/* Hero Composition */}
-                    <div className="lg:col-span-7 space-y-5">
-                      <div className="inline-flex items-center gap-2 rounded-full border border-violet-400/25 bg-violet-500/10 px-3.5 py-1 text-xs font-semibold text-violet-200">
-                        <ShieldCheck className="h-3.5 w-3.5 text-violet-400" />
+                    <div className="space-y-5 lg:col-span-7">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.06] px-3.5 py-1 text-xs font-semibold text-zinc-200">
+                        <ShieldCheck className="h-3.5 w-3.5 text-zinc-300" />
                         <span>{t.heroSubtitle}</span>
                       </div>
 
-                      <h1 className="bg-gradient-to-r from-white via-violet-200 to-indigo-300 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent sm:text-5xl leading-[1.12]">
+                      <h1 className="bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-4xl font-extrabold leading-[1.12] tracking-tight text-transparent sm:text-5xl">
                         {t.heroTitle}
                       </h1>
 
                       {/* Quick Stats Cards */}
                       <div className="grid grid-cols-3 gap-3 pt-2">
                         <div className="glass-card rounded-xl p-3.5">
-                          <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-white/50">
-                            <Package className="h-3.5 w-3.5 text-violet-400" />
+                          <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-zinc-400">
+                            <Package className="h-3.5 w-3.5 text-zinc-300" />
                             <span>{t.statMods}</span>
                           </div>
                           <div className="mt-1.5 text-lg font-bold text-white">
@@ -751,8 +923,8 @@ export function App() {
                         </div>
 
                         <div className="glass-card rounded-xl p-3.5">
-                          <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-white/50">
-                            <Cpu className="h-3.5 w-3.5 text-indigo-400" />
+                          <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-zinc-400">
+                            <Cpu className="h-3.5 w-3.5 text-zinc-300" />
                             <span>{t.statRam}</span>
                           </div>
                           <div className="mt-1.5 text-lg font-bold text-white">
@@ -761,7 +933,7 @@ export function App() {
                         </div>
 
                         <div className="glass-card rounded-xl p-3.5">
-                          <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-white/50">
+                          <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-zinc-400">
                             <Gamepad2 className="h-3.5 w-3.5 text-emerald-400" />
                             <span>{t.statLoader}</span>
                           </div>
@@ -770,62 +942,168 @@ export function App() {
                       </div>
                     </div>
 
-                    {/* Right Player Profile Glass Card */}
+                    {/* Right Player Profile Glass Card (Offline + Microsoft Account) */}
                     <div className="lg:col-span-5">
-                      <div className="glass-card rounded-2xl p-5 space-y-4">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold uppercase tracking-wider text-white/60">
+                      <div className="glass-card space-y-4 rounded-2xl p-5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-semibold uppercase tracking-wider text-zinc-300">
                             {t.profileTitle}
                           </span>
-                          <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-medium text-emerald-300">
-                            {t.profileOfflineBadge}
+                          <span
+                            className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${
+                              isMicrosoftMode
+                                ? "border-sky-400/35 bg-sky-500/15 text-sky-200"
+                                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                            }`}
+                          >
+                            {isMicrosoftMode ? t.profileMicrosoftBadge : t.profileOfflineBadge}
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-4">
-                          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-white/15 bg-black/40 shadow-lg">
-                            {!avatarError ? (
-                              <img
-                                src={avatarSrc}
-                                alt={cleanNick}
-                                onError={() => setAvatarError(true)}
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center bg-violet-500/15 text-violet-300">
-                                <User className="h-8 w-8" />
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="min-w-0 flex-1 space-y-1.5">
-                            <label className="block text-[11px] font-medium text-white/55">
-                              {t.nicknameLabel}
-                            </label>
-                            <input
-                              type="text"
-                              maxLength={16}
-                              value={settings.nickname}
-                              placeholder={t.nicknamePlaceholder}
-                              onChange={(e) => {
-                                setAvatarError(false);
-                                const val = e.target.value.replace(/[^a-zA-Z0-9_]/g, "");
-                                updateSettings({ nickname: val }, 350);
-                              }}
-                              className="w-full rounded-xl border border-white/10 bg-black/35 px-3 py-2 text-sm font-semibold text-white outline-none transition focus:border-violet-400/60 focus:ring-2 focus:ring-violet-500/25"
-                            />
-                          </div>
+                        {/* Account Mode Switcher */}
+                        <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-white/10 bg-black/35 p-1">
+                          <button
+                            type="button"
+                            onClick={() => handleSwitchAccountType("offline")}
+                            className={`rounded-lg py-1.5 text-xs font-semibold transition ${
+                              !isMicrosoftMode
+                                ? "border border-white/15 bg-zinc-700 text-white shadow"
+                                : "text-zinc-400 hover:text-zinc-200"
+                            }`}
+                          >
+                            {t.accountTypeOffline}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSwitchAccountType("microsoft")}
+                            className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition ${
+                              isMicrosoftMode
+                                ? "border border-white/15 bg-zinc-700 text-white shadow"
+                                : "text-zinc-400 hover:text-zinc-200"
+                            }`}
+                          >
+                            <MicrosoftLogoIcon className="h-3.5 w-3.5" />
+                            <span>{t.accountTypeMicrosoft}</span>
+                          </button>
                         </div>
 
+                        {!isMicrosoftMode ? (
+                          <div className="flex items-center gap-4">
+                            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-white/15 bg-black/45 shadow-lg">
+                              {!avatarError ? (
+                                <img
+                                  src={avatarSrc}
+                                  alt={cleanNick}
+                                  onError={() => setAvatarError(true)}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center bg-zinc-800 text-zinc-300">
+                                  <User className="h-8 w-8" />
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="min-w-0 flex-1 space-y-1.5">
+                              <label className="block text-[11px] font-medium text-zinc-400">
+                                {t.nicknameLabel}
+                              </label>
+                              <input
+                                type="text"
+                                maxLength={16}
+                                value={settings.nickname}
+                                placeholder={t.nicknamePlaceholder}
+                                onChange={(e) => {
+                                  setAvatarError(false);
+                                  const val = e.target.value.replace(/[^a-zA-Z0-9_]/g, "");
+                                  updateSettings({ nickname: val }, 350);
+                                }}
+                                className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm font-semibold text-white outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-white/10"
+                              />
+                            </div>
+                          </div>
+                        ) : isMsSignedIn ? (
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-3.5 rounded-xl border border-white/10 bg-black/35 p-3">
+                              <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white/15 bg-black/45 shadow">
+                                {!avatarError ? (
+                                  <img
+                                    src={avatarSrc}
+                                    alt={settings.msUsername || "Player"}
+                                    onError={() => setAvatarError(true)}
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center bg-zinc-800 text-zinc-300">
+                                    <User className="h-7 w-7" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="truncate text-sm font-bold text-white">
+                                    {settings.msUsername}
+                                  </span>
+                                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                                </div>
+                                <div className="mt-0.5 text-[11px] text-zinc-400">
+                                  {t.msLicensedLabel}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                type="button"
+                                disabled={msLoggingIn}
+                                onClick={() => void handleMicrosoftLogin()}
+                                className="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-xs font-semibold text-zinc-200 transition hover:bg-white/10 disabled:opacity-60"
+                              >
+                                <RefreshCw
+                                  className={`h-3.5 w-3.5 ${msLoggingIn ? "animate-spin" : ""}`}
+                                />
+                                <span>{msLoggingIn ? t.msLoggingIn : "Сменить"}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleMicrosoftLogout}
+                                className="flex items-center justify-center gap-1.5 rounded-xl border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/20"
+                              >
+                                <LogOut className="h-3.5 w-3.5" />
+                                <span>{t.msLogoutBtn}</span>
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <p className="text-xs leading-relaxed text-zinc-400">
+                              {t.msNotSignedInHint}
+                            </p>
+                            <button
+                              type="button"
+                              disabled={msLoggingIn}
+                              onClick={() => void handleMicrosoftLogin()}
+                              className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-white/20 bg-zinc-800 px-4 py-2.5 text-xs font-bold text-white shadow-lg transition hover:border-white/35 hover:bg-zinc-700 disabled:opacity-60"
+                            >
+                              {msLoggingIn ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <MicrosoftLogoIcon className="h-4 w-4" />
+                              )}
+                              <span>{msLoggingIn ? t.msLoggingIn : t.msLoginBtn}</span>
+                            </button>
+                          </div>
+                        )}
+
                         <div className="border-t border-white/[0.07] pt-3">
-                          <div className="mb-2 text-[11px] font-medium text-white/50">
+                          <div className="mb-2 text-[11px] font-medium text-zinc-400">
                             {t.socialLinksLabel}
                           </div>
                           <div className="grid grid-cols-2 gap-2.5">
                             <button
                               type="button"
                               onClick={() => void openUrl("https://discord.gg/fSCMzjPMRR")}
-                              className="flex items-center justify-center gap-2 rounded-xl border border-indigo-400/25 bg-indigo-500/15 px-3 py-2 text-xs font-semibold text-indigo-200 transition hover:border-indigo-400/50 hover:bg-indigo-500/25"
+                              className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-xs font-semibold text-zinc-200 transition hover:border-white/25 hover:bg-white/[0.1]"
                             >
                               <MessageCircle className="h-3.5 w-3.5" />
                               <span>Discord</span>
@@ -835,7 +1113,7 @@ export function App() {
                             <button
                               type="button"
                               onClick={() => void openUrl("https://t.me/famevisuals")}
-                              className="flex items-center justify-center gap-2 rounded-xl border border-sky-400/25 bg-sky-500/15 px-3 py-2 text-xs font-semibold text-sky-200 transition hover:border-sky-400/50 hover:bg-sky-500/25"
+                              className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-xs font-semibold text-zinc-200 transition hover:border-white/25 hover:bg-white/[0.1]"
                             >
                               <Send className="h-3.5 w-3.5" />
                               <span>Telegram</span>
@@ -851,11 +1129,11 @@ export function App() {
                   <div className="glass-card rounded-2xl p-4 sm:p-5">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div className="space-y-1">
-                        <div className="text-[11px] uppercase tracking-wider text-white/50">
+                        <div className="text-[11px] uppercase tracking-wider text-zinc-400">
                           {t.versionProfileLabel}
                         </div>
                         <div className="flex items-center gap-2.5">
-                          <span className="h-2.5 w-2.5 rounded-full bg-violet-400 shadow-[0_0_10px_#a78bfa]" />
+                          <span className="h-2.5 w-2.5 rounded-full bg-zinc-200 shadow-[0_0_10px_rgba(255,255,255,0.45)]" />
                           <span className="text-sm font-semibold text-white">
                             {t.versionProfileValue}
                           </span>
@@ -895,12 +1173,12 @@ export function App() {
                                   ? "text-rose-300"
                                   : launchProgress.stage === "ready"
                                     ? "text-emerald-300"
-                                    : "text-violet-200"
+                                    : "text-zinc-200"
                               }`}
                             >
                               {localizedStageText}
                             </span>
-                            <span className="font-mono text-white/70">
+                            <span className="font-mono text-zinc-300">
                               {launchProgress.totalMb > 0
                                 ? `${launchProgress.downloadedMb.toFixed(1)} / ${launchProgress.totalMb.toFixed(1)} MB (${Math.round(launchProgress.percent)}%)`
                                 : `${Math.round(launchProgress.percent)}%`}
@@ -913,7 +1191,7 @@ export function App() {
                                   ? "bg-rose-500"
                                   : launchProgress.stage === "ready"
                                     ? "bg-emerald-400"
-                                    : "bg-gradient-to-r from-violet-500 via-indigo-400 to-fuchsia-400"
+                                    : "bg-gradient-to-r from-zinc-500 via-zinc-300 to-white"
                               }`}
                               initial={{ width: 0 }}
                               animate={{
@@ -941,14 +1219,14 @@ export function App() {
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <div>
                       <h2 className="text-2xl font-bold text-white">{t.modsTitle}</h2>
-                      <p className="text-xs text-white/55">{t.modsSubtitle}</p>
+                      <p className="text-xs text-zinc-400">{t.modsSubtitle}</p>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => void refreshInstalledMods(settings.gameDir)}
-                        className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-xs font-medium text-white/80 transition hover:bg-white/10"
+                        className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-xs font-medium text-zinc-200 transition hover:bg-white/10"
                       >
                         <RefreshCw className={`h-3.5 w-3.5 ${modsLoading ? "animate-spin" : ""}`} />
                         <span>{t.modsRefresh}</span>
@@ -960,7 +1238,7 @@ export function App() {
                             path: `${settings.gameDir}\\mods`,
                           })
                         }
-                        className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-xs font-medium text-white/80 transition hover:bg-white/10"
+                        className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-xs font-medium text-zinc-200 transition hover:bg-white/10"
                       >
                         <FolderOpen className="h-3.5 w-3.5" />
                         <span>{t.modsOpenFolder}</span>
@@ -969,14 +1247,14 @@ export function App() {
                   </div>
 
                   {/* Sub-Tab Switcher */}
-                  <div className="inline-flex rounded-xl border border-white/10 bg-black/35 p-1">
+                  <div className="inline-flex rounded-xl border border-white/10 bg-black/40 p-1">
                     <button
                       type="button"
                       onClick={() => setModsSubTab("installed")}
                       className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition ${
                         modsSubTab === "installed"
-                          ? "bg-violet-600 text-white shadow"
-                          : "text-white/60 hover:text-white"
+                          ? "border border-white/15 bg-zinc-700 text-white shadow"
+                          : "text-zinc-400 hover:text-white"
                       }`}
                     >
                       {t.modsTabInstalled} ({installedMods.length})
@@ -986,8 +1264,8 @@ export function App() {
                       onClick={() => setModsSubTab("modrinth")}
                       className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition ${
                         modsSubTab === "modrinth"
-                          ? "bg-violet-600 text-white shadow"
-                          : "text-white/60 hover:text-white"
+                          ? "border border-white/15 bg-zinc-700 text-white shadow"
+                          : "text-zinc-400 hover:text-white"
                       }`}
                     >
                       {t.modsTabModrinth}
@@ -997,11 +1275,11 @@ export function App() {
                   {modsSubTab === "installed" ? (
                     installedMods.length === 0 ? (
                       <div className="glass-card flex flex-col items-center justify-center rounded-2xl p-10 text-center">
-                        <Package className="h-10 w-10 text-violet-400/60" />
+                        <Package className="h-10 w-10 text-zinc-400" />
                         <h3 className="mt-3 text-base font-semibold text-white">
                           {t.modsEmptyInstalled}
                         </h3>
-                        <p className="mt-1 max-w-md text-xs text-white/50">
+                        <p className="mt-1 max-w-md text-xs text-zinc-400">
                           {t.modsEmptyInstalledHint}
                         </p>
                       </div>
@@ -1019,14 +1297,14 @@ export function App() {
                                 <span className="truncate text-sm font-bold text-white">
                                   {mod.cleanName}
                                 </span>
-                                <span className="rounded-md bg-white/10 px-2 py-0.5 font-mono text-[10px] text-white/75">
+                                <span className="rounded-md bg-white/10 px-2 py-0.5 font-mono text-[10px] text-zinc-200">
                                   {mod.version}
                                 </span>
                                 <span
                                   className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                                     mod.isOfficial
-                                      ? "border border-violet-400/40 bg-violet-500/20 text-violet-200"
-                                      : "border border-cyan-400/30 bg-cyan-500/15 text-cyan-200"
+                                      ? "border border-white/25 bg-white/10 text-zinc-100"
+                                      : "border border-zinc-400/30 bg-zinc-500/15 text-zinc-300"
                                   }`}
                                 >
                                   {mod.isOfficial ? t.modsOfficialBadge : t.modsCustomBadge}
@@ -1037,10 +1315,10 @@ export function App() {
                                   </span>
                                 )}
                               </div>
-                              <p className="truncate text-xs text-white/55">
+                              <p className="truncate text-xs text-zinc-400">
                                 {mod.description || mod.fileName}
                               </p>
-                              <div className="text-[11px] font-mono text-white/35">
+                              <div className="font-mono text-[11px] text-zinc-500">
                                 {mod.fileName} • {formatBytes(mod.sizeBytes)}
                               </div>
                             </div>
@@ -1051,13 +1329,15 @@ export function App() {
                                 type="button"
                                 onClick={() => void handleToggleMod(mod)}
                                 aria-label="Toggle Mod"
-                                className={`relative h-6 w-11 rounded-full transition ${
-                                  mod.enabled ? "bg-violet-600" : "bg-white/15"
+                                className={`relative h-6 w-11 rounded-full border transition ${
+                                  mod.enabled
+                                    ? "border-white/30 bg-zinc-500"
+                                    : "border-white/10 bg-white/10"
                                 }`}
                               >
                                 <span
                                   className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
-                                    mod.enabled ? "left-[22px]" : "left-0.5"
+                                    mod.enabled ? "left-[21px]" : "left-0.5"
                                   }`}
                                 />
                               </button>
@@ -1065,7 +1345,7 @@ export function App() {
                               <button
                                 type="button"
                                 onClick={() => setModToDelete(mod)}
-                                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-white/60 transition hover:border-rose-500/40 hover:bg-rose-500/20 hover:text-rose-300"
+                                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-zinc-400 transition hover:border-rose-500/40 hover:bg-rose-500/20 hover:text-rose-300"
                                 aria-label="Delete Mod"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -1079,18 +1359,18 @@ export function App() {
                     <div className="space-y-4">
                       {/* Search Bar */}
                       <div className="relative">
-                        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/45" />
+                        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
                         <input
                           type="text"
                           value={modrinthQuery}
                           onChange={(e) => setModrinthQuery(e.target.value)}
                           placeholder={t.modrinthSearchPlaceholder}
-                          className="w-full rounded-xl border border-white/10 bg-black/35 py-2.5 pl-10 pr-4 text-sm text-white outline-none transition focus:border-violet-400/60 focus:ring-2 focus:ring-violet-500/25"
+                          className="w-full rounded-xl border border-white/10 bg-black/40 py-2.5 pl-10 pr-4 text-sm text-white outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-white/10"
                         />
                       </div>
 
                       {!modrinthQuery && (
-                        <div className="text-xs font-semibold uppercase tracking-wider text-violet-300">
+                        <div className="text-xs font-semibold uppercase tracking-wider text-zinc-300">
                           {t.modrinthPopularHeading}
                         </div>
                       )}
@@ -1103,10 +1383,10 @@ export function App() {
 
                       {modrinthLoading ? (
                         <div className="flex items-center justify-center py-12">
-                          <Loader2 className="h-7 w-7 animate-spin text-violet-400" />
+                          <Loader2 className="h-7 w-7 animate-spin text-zinc-300" />
                         </div>
                       ) : modrinthMods.length === 0 ? (
-                        <div className="glass-card rounded-2xl p-8 text-center text-sm text-white/55">
+                        <div className="glass-card rounded-2xl p-8 text-center text-sm text-zinc-400">
                           {t.modrinthNoResults}
                         </div>
                       ) : (
@@ -1128,7 +1408,7 @@ export function App() {
                                         className="h-full w-full object-cover"
                                       />
                                     ) : (
-                                      <div className="flex h-full w-full items-center justify-center text-violet-300">
+                                      <div className="flex h-full w-full items-center justify-center text-zinc-300">
                                         <Package className="h-5 w-5" />
                                       </div>
                                     )}
@@ -1138,10 +1418,10 @@ export function App() {
                                     <h3 className="truncate text-sm font-bold text-white">
                                       {project.title}
                                     </h3>
-                                    <p className="mt-0.5 line-clamp-2 text-xs text-white/55">
+                                    <p className="mt-0.5 line-clamp-2 text-xs text-zinc-400">
                                       {project.description}
                                     </p>
-                                    <div className="mt-1.5 flex items-center gap-2 text-[11px] text-white/40">
+                                    <div className="mt-1.5 flex items-center gap-2 text-[11px] text-zinc-500">
                                       <span>by {project.author}</span>
                                       <span>•</span>
                                       <span>
@@ -1158,7 +1438,7 @@ export function App() {
                                   className={`flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition ${
                                     installed
                                       ? "border border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
-                                      : "bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-60"
+                                      : "bg-zinc-200 text-zinc-950 hover:bg-white disabled:opacity-60"
                                   }`}
                                 >
                                   {busy ? (
@@ -1198,7 +1478,7 @@ export function App() {
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <div>
                       <h2 className="text-2xl font-bold text-white">{t.changelogTitle}</h2>
-                      <p className="text-xs text-white/55">{t.changelogSubtitle}</p>
+                      <p className="text-xs text-zinc-400">{t.changelogSubtitle}</p>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -1210,7 +1490,7 @@ export function App() {
                       <button
                         type="button"
                         onClick={() => void refreshChangelog(settings.gameDir)}
-                        className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-xs font-medium text-white/80 transition hover:bg-white/10"
+                        className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-xs font-medium text-zinc-200 transition hover:bg-white/10"
                       >
                         <RefreshCw
                           className={`h-3.5 w-3.5 ${changelogLoading ? "animate-spin" : ""}`}
@@ -1222,24 +1502,24 @@ export function App() {
 
                   <div className="space-y-4">
                     {changelog.map((entry) => (
-                      <div key={entry.version} className="glass-card rounded-2xl p-5 space-y-4">
+                      <div key={entry.version} className="glass-card space-y-4 rounded-2xl p-5">
                         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.07] pb-3">
                           <div className="flex items-center gap-3">
                             <span className="text-lg font-extrabold text-white">
                               {entry.version}
                             </span>
                             {entry.isLatest && (
-                              <span className="rounded-full border border-violet-400/40 bg-violet-500/20 px-2.5 py-0.5 text-[11px] font-semibold text-violet-200">
+                              <span className="rounded-full border border-white/25 bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-zinc-200">
                                 {t.changelogLatestBadge}
                               </span>
                             )}
                             {entry.title && (
-                              <span className="text-sm font-medium text-white/75">
+                              <span className="text-sm font-medium text-zinc-300">
                                 — {entry.title[settings.language] || entry.title.en}
                               </span>
                             )}
                           </div>
-                          <span className="text-xs font-mono text-white/45">{entry.date}</span>
+                          <span className="font-mono text-xs text-zinc-500">{entry.date}</span>
                         </div>
 
                         <ul className="space-y-2.5">
@@ -1252,7 +1532,7 @@ export function App() {
                                 >
                                   {ch.category}
                                 </span>
-                                <span className="text-white/85 leading-relaxed">
+                                <span className="leading-relaxed text-zinc-200">
                                   {ch.text[settings.language] || ch.text.en}
                                 </span>
                               </li>
@@ -1276,26 +1556,26 @@ export function App() {
                 >
                   <div>
                     <h2 className="text-2xl font-bold text-white">{t.settingsTitle}</h2>
-                    <p className="text-xs text-white/55">{t.settingsSubtitle}</p>
+                    <p className="text-xs text-zinc-400">{t.settingsSubtitle}</p>
                   </div>
 
                   {/* Game Directory Card */}
-                  <div className="glass-card rounded-2xl p-5 space-y-3">
+                  <div className="glass-card space-y-3 rounded-2xl p-5">
                     <div className="flex items-center gap-2.5">
-                      <HardDrive className="h-4 w-4 text-violet-400" />
+                      <HardDrive className="h-4 w-4 text-zinc-300" />
                       <h3 className="text-sm font-bold text-white">{t.settingsGameDirTitle}</h3>
                     </div>
-                    <p className="text-xs text-white/55">{t.settingsGameDirDesc}</p>
+                    <p className="text-xs text-zinc-400">{t.settingsGameDirDesc}</p>
 
                     <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
-                      <div className="flex-1 truncate rounded-xl border border-white/10 bg-black/35 px-3.5 py-2.5 font-mono text-xs text-white/85">
+                      <div className="flex-1 truncate rounded-xl border border-white/10 bg-black/40 px-3.5 py-2.5 font-mono text-xs text-zinc-200">
                         {settings.gameDir}
                       </div>
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => void handlePickGameDir()}
-                          className="rounded-xl bg-violet-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-violet-500"
+                          className="rounded-xl bg-zinc-200 px-4 py-2.5 text-xs font-semibold text-zinc-950 transition hover:bg-white"
                         >
                           {t.settingsChangeDir}
                         </button>
@@ -1304,7 +1584,7 @@ export function App() {
                           onClick={() =>
                             void invoke("open_game_dir", { path: settings.gameDir })
                           }
-                          className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-xs font-semibold text-white/85 transition hover:bg-white/10"
+                          className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-xs font-semibold text-zinc-200 transition hover:bg-white/10"
                         >
                           <FolderOpen className="h-3.5 w-3.5" />
                           <span>{t.settingsOpenDir}</span>
@@ -1314,22 +1594,22 @@ export function App() {
                   </div>
 
                   {/* RAM Allocation Slider */}
-                  <div className="glass-card rounded-2xl p-5 space-y-4">
+                  <div className="glass-card space-y-4 rounded-2xl p-5">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
-                        <Cpu className="h-4 w-4 text-indigo-400" />
+                        <Cpu className="h-4 w-4 text-zinc-300" />
                         <h3 className="text-sm font-bold text-white">{t.settingsRamTitle}</h3>
                       </div>
                       <div className="flex items-baseline gap-2">
-                        <span className="text-lg font-extrabold text-violet-300">
+                        <span className="text-lg font-extrabold text-zinc-100">
                           {(settings.ramMb / 1024).toFixed(1)} GB
                         </span>
-                        <span className="font-mono text-xs text-white/45">
+                        <span className="font-mono text-xs text-zinc-500">
                           ({settings.ramMb} MB)
                         </span>
                       </div>
                     </div>
-                    <p className="text-xs text-white/55">{t.settingsRamDesc}</p>
+                    <p className="text-xs text-zinc-400">{t.settingsRamDesc}</p>
 
                     <div className="space-y-2">
                       <input
@@ -1342,7 +1622,7 @@ export function App() {
                           updateSettings({ ramMb: Number(e.target.value) }, 120)
                         }
                         style={{
-                          background: `linear-gradient(to right, #8b5cf6 0%, #6366f1 ${
+                          background: `linear-gradient(to right, #a1a1aa 0%, #f4f4f5 ${
                             ((settings.ramMb - 1024) /
                               Math.max(512, systemInfo.totalRamMb - 1024)) *
                             100
@@ -1354,9 +1634,9 @@ export function App() {
                         }}
                         className="ram-slider w-full cursor-pointer"
                       />
-                      <div className="flex justify-between text-[11px] text-white/45">
+                      <div className="flex justify-between text-[11px] text-zinc-500">
                         <span>1.0 GB</span>
-                        <span className="text-violet-300/80">{t.settingsRamRecommended}</span>
+                        <span className="text-zinc-300">{t.settingsRamRecommended}</span>
                         <span>
                           {t.settingsRamMaxPc} {(systemInfo.totalRamMb / 1024).toFixed(1)} GB
                         </span>
@@ -1365,12 +1645,12 @@ export function App() {
                   </div>
 
                   {/* Language Switcher (EN / RU / PL ONLY) */}
-                  <div className="glass-card rounded-2xl p-5 space-y-3">
+                  <div className="glass-card space-y-3 rounded-2xl p-5">
                     <div className="flex items-center gap-2.5">
                       <Languages className="h-4 w-4 text-emerald-400" />
                       <h3 className="text-sm font-bold text-white">{t.settingsLanguageTitle}</h3>
                     </div>
-                    <p className="text-xs text-white/55">{t.settingsLanguageDesc}</p>
+                    <p className="text-xs text-zinc-400">{t.settingsLanguageDesc}</p>
 
                     <div className="grid grid-cols-3 gap-3 pt-1">
                       {(
@@ -1388,15 +1668,15 @@ export function App() {
                             onClick={() => updateSettings({ language: lang.code })}
                             className={`flex items-center justify-between rounded-xl border px-4 py-3 text-left transition ${
                               active
-                                ? "border-violet-400/60 bg-violet-500/20 text-white shadow-lg shadow-violet-500/10"
-                                : "border-white/10 bg-black/30 text-white/65 hover:border-white/20 hover:text-white"
+                                ? "border-white/35 bg-white/10 text-white shadow-lg"
+                                : "border-white/10 bg-black/35 text-zinc-400 hover:border-white/20 hover:text-white"
                             }`}
                           >
                             <div>
                               <div className="text-sm font-bold">{lang.label}</div>
-                              <div className="text-[11px] text-white/45">{lang.sub}</div>
+                              <div className="text-[11px] text-zinc-500">{lang.sub}</div>
                             </div>
-                            {active && <CheckCircle2 className="h-4 w-4 text-violet-300" />}
+                            {active && <CheckCircle2 className="h-4 w-4 text-zinc-100" />}
                           </button>
                         );
                       })}
@@ -1404,22 +1684,22 @@ export function App() {
                   </div>
 
                   {/* Custom Background Wallpaper */}
-                  <div className="glass-card rounded-2xl p-5 space-y-3">
+                  <div className="glass-card space-y-3 rounded-2xl p-5">
                     <div className="flex items-center justify-between gap-4">
                       <div>
                         <div className="flex items-center gap-2.5">
-                          <ImageIcon className="h-4 w-4 text-fuchsia-400" />
+                          <ImageIcon className="h-4 w-4 text-zinc-300" />
                           <h3 className="text-sm font-bold text-white">
                             {t.settingsWallpaperTitle}
                           </h3>
                         </div>
-                        <p className="mt-1 text-xs text-white/55">{t.settingsWallpaperDesc}</p>
+                        <p className="mt-1 text-xs text-zinc-400">{t.settingsWallpaperDesc}</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => void handlePickWallpaper()}
-                          className="rounded-xl bg-white/10 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-white/15"
+                          className="rounded-xl bg-white/10 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-white/20"
                         >
                           {t.settingsWallpaperPick}
                         </button>
@@ -1427,7 +1707,7 @@ export function App() {
                           <button
                             type="button"
                             onClick={() => updateSettings({ customWallpaper: null })}
-                            className="rounded-xl border border-white/10 px-3.5 py-2 text-xs font-semibold text-white/70 transition hover:bg-white/10"
+                            className="rounded-xl border border-white/10 px-3.5 py-2 text-xs font-semibold text-zinc-300 transition hover:bg-white/10"
                           >
                             {t.settingsWallpaperReset}
                           </button>
@@ -1449,19 +1729,19 @@ export function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
           >
             <motion.div
               initial={{ scale: 0.94, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.94, opacity: 0 }}
-              className="glass-card w-full max-w-md rounded-2xl border border-white/15 p-6 space-y-4"
+              className="glass-card w-full max-w-md space-y-4 rounded-2xl border border-white/15 p-6"
             >
               <div className="flex items-center gap-3 text-rose-300">
                 <AlertTriangle className="h-5 w-5 shrink-0" />
                 <h3 className="text-base font-bold text-white">{t.modsDeleteTitle}</h3>
               </div>
-              <p className="text-sm text-white/75">
+              <p className="text-sm text-zinc-300">
                 {t.modsDeleteConfirm}{" "}
                 <span className="font-mono font-semibold text-white">
                   {modToDelete.fileName}
@@ -1472,7 +1752,7 @@ export function App() {
                 <button
                   type="button"
                   onClick={() => setModToDelete(null)}
-                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-white/80 hover:bg-white/10"
+                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/10"
                 >
                   {t.modsCancel}
                 </button>
@@ -1496,36 +1776,36 @@ export function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md"
           >
             <motion.div
               initial={{ scale: 0.94, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.94, opacity: 0 }}
-              className="glass-card w-full max-w-md rounded-2xl border border-violet-400/30 p-6 space-y-4"
+              className="glass-card w-full max-w-md space-y-4 rounded-2xl border border-white/20 p-6"
             >
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/20 text-violet-300">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-zinc-100">
                   <ArrowDownToLine className="h-5 w-5" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-white">{t.updaterModalTitle}</h3>
-                  <p className="text-xs text-white/60">
+                  <p className="text-xs text-zinc-400">
                     {t.updaterNewVersion}{" "}
-                    <span className="font-semibold text-violet-300">v{pendingUpdate.version}</span>
+                    <span className="font-semibold text-zinc-100">v{pendingUpdate.version}</span>
                   </p>
                 </div>
               </div>
 
               {pendingUpdate.body && (
-                <div className="max-h-32 overflow-y-auto rounded-xl border border-white/10 bg-black/35 p-3 text-xs text-white/75 whitespace-pre-wrap">
+                <div className="max-h-32 overflow-y-auto whitespace-pre-wrap rounded-xl border border-white/10 bg-black/40 p-3 text-xs text-zinc-300">
                   {pendingUpdate.body}
                 </div>
               )}
 
               {updatingLauncher && (
                 <div className="space-y-1.5">
-                  <div className="flex justify-between text-xs text-violet-200">
+                  <div className="flex justify-between text-xs text-zinc-200">
                     <span>
                       {updatePercent >= 100 ? t.updaterRestarting : t.updaterDownloading}
                     </span>
@@ -1533,7 +1813,7 @@ export function App() {
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-violet-500 to-indigo-400 transition-all"
+                      className="h-full rounded-full bg-gradient-to-r from-zinc-400 to-white transition-all"
                       style={{ width: `${updatePercent}%` }}
                     />
                   </div>
@@ -1545,7 +1825,7 @@ export function App() {
                   <button
                     type="button"
                     onClick={() => setPendingUpdate(null)}
-                    className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-white/80 hover:bg-white/10"
+                    className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/10"
                   >
                     {t.updaterLater}
                   </button>
@@ -1554,7 +1834,7 @@ export function App() {
                   type="button"
                   disabled={updatingLauncher}
                   onClick={() => void handleInstallUpdater()}
-                  className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-xs font-semibold text-white hover:bg-violet-500 disabled:opacity-60"
+                  className="flex items-center gap-2 rounded-xl bg-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-950 hover:bg-white disabled:opacity-60"
                 >
                   {updatingLauncher ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1578,10 +1858,10 @@ export function App() {
             exit={{ opacity: 0, y: 16 }}
             className={`fixed bottom-5 right-5 z-50 flex items-center gap-2.5 rounded-xl border px-4 py-2.5 text-xs font-semibold shadow-2xl backdrop-blur-xl ${
               toast.type === "error"
-                ? "border-rose-500/40 bg-rose-950/85 text-rose-100"
+                ? "border-rose-500/40 bg-rose-950/90 text-rose-100"
                 : toast.type === "success"
-                  ? "border-emerald-500/40 bg-emerald-950/85 text-emerald-100"
-                  : "border-violet-500/40 bg-[#141428]/90 text-white"
+                  ? "border-emerald-500/40 bg-emerald-950/90 text-emerald-100"
+                  : "border-white/20 bg-zinc-900/95 text-white"
             }`}
           >
             <span>{toast.text}</span>

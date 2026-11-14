@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use sysinfo::System;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 use tokio::io::AsyncWriteExt;
 
 const GITHUB_RAW_BASE: &str =
@@ -18,7 +18,14 @@ const GITHUB_RAW_BASE: &str =
 const DEFAULT_CHANGELOG_JSON: &str = include_str!("../../changelog.json");
 const DEFAULT_MANIFEST_JSON: &str = include_str!("../../manifest.json");
 const LAUNCHER_USER_AGENT: &str =
-    "FameVisuals-Launcher/1.2.0 (https://github.com/Txmih/famevisuals-launcher)";
+    "FameLauncher/1.2.0 (https://github.com/Txmih/famevisuals-launcher)";
+const MS_CLIENT_ID: &str = "00000000402b5328";
+const MS_REDIRECT_URI: &str = "https://login.live.com/oauth20_desktop.srf";
+const MS_SCOPE: &str = "service::user.auth.xboxlive.com::MBI_SSL";
+
+fn default_account_type() -> String {
+    "offline".to_string()
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -29,6 +36,25 @@ pub struct LauncherSettings {
     pub language: String,
     #[serde(default)]
     pub custom_wallpaper: Option<String>,
+    #[serde(default = "default_account_type")]
+    pub account_type: String,
+    #[serde(default)]
+    pub ms_username: Option<String>,
+    #[serde(default)]
+    pub ms_uuid: Option<String>,
+    #[serde(default)]
+    pub ms_access_token: Option<String>,
+    #[serde(default)]
+    pub ms_refresh_token: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MicrosoftAccountProfile {
+    pub username: String,
+    pub uuid: String,
+    pub access_token: String,
+    pub refresh_token: String,
 }
 
 impl Default for LauncherSettings {
@@ -39,6 +65,11 @@ impl Default for LauncherSettings {
             game_dir: default_game_dir().to_string_lossy().to_string(),
             language: "ru".to_string(),
             custom_wallpaper: None,
+            account_type: default_account_type(),
+            ms_username: None,
+            ms_uuid: None,
+            ms_access_token: None,
+            ms_refresh_token: None,
         }
     }
 }
@@ -918,6 +949,15 @@ fn rules_allow_windows(rules: &Option<Vec<serde_json::Value>>) -> bool {
     allowed
 }
 
+fn is_incompatible_native(coords_or_path: &str) -> bool {
+    let lower = coords_or_path.to_lowercase();
+    lower.contains("natives-windows-arm64")
+        || (lower.contains("natives-windows-x86") && !lower.contains("natives-windows-x86_64"))
+        || lower.contains("natives-linux")
+        || lower.contains("natives-macos")
+        || lower.contains("natives-osx")
+}
+
 fn extract_natives_dlls(jar_path: &Path, natives_dir: &Path) -> anyhow::Result<()> {
     let file = File::open(jar_path)?;
     let mut archive = zip::ZipArchive::new(file)?;
@@ -925,15 +965,21 @@ fn extract_natives_dlls(jar_path: &Path, natives_dir: &Path) -> anyhow::Result<(
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i)?;
         let name = entry.name().to_string();
-        if entry.is_dir() || name.starts_with("META-INF/") || !name.to_lowercase().ends_with(".dll") {
+        let lower_name = name.to_lowercase();
+        if entry.is_dir() || lower_name.starts_with("meta-inf/") || !lower_name.ends_with(".dll") {
+            continue;
+        }
+        if lower_name.contains("arm64")
+            || (lower_name.contains("x86")
+                && !lower_name.contains("x86_64")
+                && !lower_name.contains("x64"))
+        {
             continue;
         }
         if let Some(base_name) = Path::new(&name).file_name() {
             let out_path = natives_dir.join(base_name);
-            if !out_path.exists() {
-                let mut out = File::create(&out_path)?;
-                std::io::copy(&mut entry, &mut out)?;
-            }
+            let mut out = File::create(&out_path)?;
+            std::io::copy(&mut entry, &mut out)?;
         }
     }
     Ok(())
@@ -1079,6 +1125,334 @@ async fn run_download_pool(
     Ok(())
 }
 
+// =========================================================================
+// Microsoft OAuth2 + Xbox Live + XSTS + Minecraft Services Auth
+// =========================================================================
+
+fn format_dashed_uuid(raw: &str) -> String {
+    let clean: String = raw.chars().filter(|c| c.is_ascii_hexdigit()).collect();
+    if clean.len() == 32 {
+        format!(
+            "{}-{}-{}-{}-{}",
+            &clean[0..8],
+            &clean[8..12],
+            &clean[12..16],
+            &clean[16..20],
+            &clean[20..32]
+        )
+    } else {
+        raw.to_string()
+    }
+}
+
+async fn authenticate_xbox_and_minecraft(
+    client: &reqwest::Client,
+    msa_access_token: &str,
+    msa_refresh_token: String,
+) -> Result<MicrosoftAccountProfile, String> {
+    // 1. Xbox Live User Authenticate (try raw RpsTicket, fallback to d= prefix)
+    let mut xbl_resp_json: Option<serde_json::Value> = None;
+    let mut last_xbl_err = String::new();
+    for rps_ticket in [msa_access_token.to_string(), format!("d={}", msa_access_token)] {
+        let body = serde_json::json!({
+            "Properties": {
+                "AuthMethod": "RPS",
+                "SiteName": "user.auth.xboxlive.com",
+                "RpsTicket": rps_ticket
+            },
+            "RelyingParty": "http://auth.xboxlive.com",
+            "TokenType": "JWT"
+        });
+        let resp = client
+            .post("https://user.auth.xboxlive.com/user/authenticate")
+            .header("Accept", "application/json")
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| format!("Xbox Live request failed: {}", e))?;
+
+        if resp.status().is_success() {
+            xbl_resp_json = Some(resp.json().await.map_err(|e| e.to_string())?);
+            break;
+        } else {
+            let status = resp.status();
+            let text = resp.text().await.unwrap_or_default();
+            last_xbl_err = format!("Xbox Live HTTP {}: {}", status, text);
+        }
+    }
+
+    let xbl_json = xbl_resp_json.ok_or_else(|| {
+        if last_xbl_err.is_empty() {
+            "Xbox Live authentication failed".to_string()
+        } else {
+            last_xbl_err
+        }
+    })?;
+
+    let xbl_token = xbl_json
+        .get("Token")
+        .and_then(|v| v.as_str())
+        .ok_or("Missing Xbox Live token")?
+        .to_string();
+
+    let uhs = xbl_json
+        .pointer("/DisplayClaims/xui/0/uhs")
+        .and_then(|v| v.as_str())
+        .ok_or("Missing Xbox Live user hash (uhs)")?
+        .to_string();
+
+    // 2. XSTS Authorize
+    let xsts_body = serde_json::json!({
+        "Properties": {
+            "SandboxId": "RETAIL",
+            "UserTokens": [xbl_token]
+        },
+        "RelyingParty": "rp://api.minecraftservices.com/",
+        "TokenType": "JWT"
+    });
+    let xsts_resp = client
+        .post("https://xsts.auth.xboxservices.com/xsts/authorize")
+        .header("Accept", "application/json")
+        .json(&xsts_body)
+        .send()
+        .await
+        .map_err(|e| format!("XSTS request failed: {}", e))?;
+
+    if !xsts_resp.status().is_success() {
+        let status = xsts_resp.status();
+        let err_json = xsts_resp.json::<serde_json::Value>().await.ok();
+        if let Some(xerr) = err_json.as_ref().and_then(|v| v.get("XErr")).and_then(|v| v.as_u64()) {
+            let reason = match xerr {
+                2148916233 => "У этого Microsoft-аккаунта нет профиля Xbox. Создайте профиль Xbox Live и повторите вход.",
+                2148916235 => "Xbox Live недоступен в регионе этого аккаунта.",
+                2148916236 | 2148916237 => "Аккаунту требуется подтверждение возраста на сайте Xbox.",
+                2148916238 => "Детский аккаунт (до 18 лет): добавьте его в семейную группу Microsoft и разрешите вход.",
+                _ => "Ошибка авторизации XSTS.",
+            };
+            return Err(format!("{} (XErr: {})", reason, xerr));
+        }
+        return Err(format!("XSTS authorization failed (HTTP {})", status));
+    }
+
+    let xsts_json: serde_json::Value = xsts_resp.json().await.map_err(|e| e.to_string())?;
+    let xsts_token = xsts_json
+        .get("Token")
+        .and_then(|v| v.as_str())
+        .ok_or("Missing XSTS token")?
+        .to_string();
+
+    // 3. Authenticate with Minecraft Services
+    let mc_login_body = serde_json::json!({
+        "identityToken": format!("XBL3.0 x={};{}", uhs, xsts_token)
+    });
+    let mc_login_resp = client
+        .post("https://api.minecraftservices.com/authentication/login_with_xbox")
+        .header("Accept", "application/json")
+        .json(&mc_login_body)
+        .send()
+        .await
+        .map_err(|e| format!("Minecraft login request failed: {}", e))?;
+
+    if !mc_login_resp.status().is_success() {
+        let status = mc_login_resp.status();
+        let text = mc_login_resp.text().await.unwrap_or_default();
+        return Err(format!("Minecraft auth failed (HTTP {}): {}", status, text));
+    }
+
+    let mc_login_json: serde_json::Value = mc_login_resp.json().await.map_err(|e| e.to_string())?;
+    let mc_access_token = mc_login_json
+        .get("access_token")
+        .and_then(|v| v.as_str())
+        .ok_or("Missing Minecraft access_token")?
+        .to_string();
+
+    // 4. Fetch Minecraft Java Profile
+    let profile_resp = client
+        .get("https://api.minecraftservices.com/minecraft/profile")
+        .bearer_auth(&mc_access_token)
+        .send()
+        .await
+        .map_err(|e| format!("Profile request failed: {}", e))?;
+
+    if profile_resp.status() == reqwest::StatusCode::NOT_FOUND {
+        return Err(
+            "На этом Microsoft-аккаунте не найдена лицензия Minecraft: Java Edition."
+                .to_string(),
+        );
+    }
+    if !profile_resp.status().is_success() {
+        let status = profile_resp.status();
+        let text = profile_resp.text().await.unwrap_or_default();
+        return Err(format!("Failed to load Minecraft profile (HTTP {}): {}", status, text));
+    }
+
+    let profile_json: serde_json::Value = profile_resp.json().await.map_err(|e| e.to_string())?;
+    let raw_uuid = profile_json
+        .get("id")
+        .and_then(|v| v.as_str())
+        .ok_or("Minecraft profile has no UUID (game not owned on this account)")?;
+    let username = profile_json
+        .get("name")
+        .and_then(|v| v.as_str())
+        .ok_or("Minecraft profile has no username")?
+        .to_string();
+
+    Ok(MicrosoftAccountProfile {
+        username,
+        uuid: format_dashed_uuid(raw_uuid),
+        access_token: mc_access_token,
+        refresh_token: msa_refresh_token,
+    })
+}
+
+async fn exchange_msa_token_request(
+    client: &reqwest::Client,
+    params: &[(&str, &str)],
+) -> Result<(String, String), String> {
+    let resp = client
+        .post("https://login.live.com/oauth20_token.srf")
+        .form(params)
+        .send()
+        .await
+        .map_err(|e| format!("Microsoft OAuth token request failed: {}", e))?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        return Err(format!("Microsoft OAuth token HTTP {}: {}", status, text));
+    }
+
+    let json: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+    let access_token = json
+        .get("access_token")
+        .and_then(|v| v.as_str())
+        .ok_or("Microsoft OAuth response missing access_token")?
+        .to_string();
+    let refresh_token = json
+        .get("refresh_token")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    Ok((access_token, refresh_token))
+}
+
+async fn refresh_microsoft_profile(
+    client: &reqwest::Client,
+    refresh_token: &str,
+) -> Result<MicrosoftAccountProfile, String> {
+    let (msa_access, msa_refresh) = exchange_msa_token_request(
+        client,
+        &[
+            ("client_id", MS_CLIENT_ID),
+            ("refresh_token", refresh_token),
+            ("grant_type", "refresh_token"),
+            ("scope", MS_SCOPE),
+            ("redirect_uri", MS_REDIRECT_URI),
+        ],
+    )
+    .await?;
+
+    let final_refresh = if msa_refresh.is_empty() {
+        refresh_token.to_string()
+    } else {
+        msa_refresh
+    };
+    authenticate_xbox_and_minecraft(client, &msa_access, final_refresh).await
+}
+
+#[tauri::command]
+async fn login_microsoft(app: AppHandle) -> Result<MicrosoftAccountProfile, String> {
+    if let Some(existing) = app.get_webview_window("ms-auth") {
+        let _ = existing.destroy();
+    }
+
+    let auth_url_str = format!(
+        "https://login.live.com/oauth20_authorize.srf?client_id={}&response_type=code&scope=service%3A%3Auser.auth.xboxlive.com%3A%3AMBI_SSL&redirect_uri=https%3A%2F%2Flogin.live.com%2Foauth20_desktop.srf&prompt=select_account",
+        MS_CLIENT_ID
+    );
+    let auth_url = tauri::Url::parse(&auth_url_str).map_err(|e| e.to_string())?;
+
+    let (tx, rx) = tokio::sync::oneshot::channel::<Result<String, String>>();
+    let tx_holder = Arc::new(std::sync::Mutex::new(Some(tx)));
+    let tx_nav = tx_holder.clone();
+    let tx_destroy = tx_holder.clone();
+    let app_nav = app.clone();
+
+    let auth_win = WebviewWindowBuilder::new(&app, "ms-auth", WebviewUrl::External(auth_url))
+        .title("Microsoft Sign In — FameLauncher")
+        .inner_size(500.0, 660.0)
+        .center()
+        .resizable(true)
+        .focused(true)
+        .on_navigation(move |nav_url| {
+            let s = nav_url.as_str();
+            if s.starts_with(MS_REDIRECT_URI) {
+                let mut code_opt: Option<String> = None;
+                let mut err_opt: Option<String> = None;
+                for (k, v) in nav_url.query_pairs() {
+                    if k == "code" && !v.is_empty() {
+                        code_opt = Some(v.into_owned());
+                    } else if (k == "error_description" || k == "error") && !v.is_empty() {
+                        err_opt = Some(v.into_owned());
+                    }
+                }
+                if code_opt.is_some() || err_opt.is_some() {
+                    if let Ok(mut guard) = tx_nav.lock() {
+                        if let Some(sender) = guard.take() {
+                            if let Some(code) = code_opt {
+                                let _ = sender.send(Ok(code));
+                            } else {
+                                let _ = sender.send(Err(
+                                    err_opt.unwrap_or_else(|| "Microsoft OAuth error".to_string())
+                                ));
+                            }
+                        }
+                    }
+                    let app_close = app_nav.clone();
+                    tauri::async_runtime::spawn(async move {
+                        if let Some(w) = app_close.get_webview_window("ms-auth") {
+                            let _ = w.close();
+                        }
+                    });
+                    return false;
+                }
+            }
+            true
+        })
+        .build()
+        .map_err(|e| format!("Failed to open Microsoft sign-in window: {}", e))?;
+
+    auth_win.on_window_event(move |event| {
+        if let WindowEvent::Destroyed = event {
+            if let Ok(mut guard) = tx_destroy.lock() {
+                if let Some(sender) = guard.take() {
+                    let _ = sender.send(Err("Окно входа Microsoft было закрыто".to_string()));
+                }
+            }
+        }
+    });
+
+    let code = tokio::time::timeout(std::time::Duration::from_secs(300), rx)
+        .await
+        .map_err(|_| "Время ожидания входа Microsoft истекло".to_string())?
+        .map_err(|_| "Авторизация Microsoft прервана".to_string())??;
+
+    let client = build_http_client(30)?;
+    let (msa_access, msa_refresh) = exchange_msa_token_request(
+        &client,
+        &[
+            ("client_id", MS_CLIENT_ID),
+            ("code", &code),
+            ("grant_type", "authorization_code"),
+            ("redirect_uri", MS_REDIRECT_URI),
+            ("scope", MS_SCOPE),
+        ],
+    )
+    .await?;
+
+    authenticate_xbox_and_minecraft(&client, &msa_access, msa_refresh).await
+}
+
 #[tauri::command]
 async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), String> {
     let game_dir = if settings.game_dir.trim().is_empty() {
@@ -1086,13 +1460,96 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
     } else {
         PathBuf::from(&settings.game_dir)
     };
-    let nickname = if settings.nickname.trim().is_empty() {
+    let offline_nickname = if settings.nickname.trim().is_empty() {
         "FamePlayer".to_string()
     } else {
         settings.nickname.trim().to_string()
     };
 
     let client = build_http_client(120)?;
+
+    // Resolve Microsoft session if selected
+    let mut active_settings = settings.clone();
+    let (launch_username, launch_uuid, launch_token, launch_user_type) =
+        if active_settings.account_type == "microsoft" {
+            let ms_token = active_settings
+                .ms_access_token
+                .clone()
+                .filter(|s| !s.trim().is_empty())
+                .ok_or_else(|| {
+                    "Выбран режим Microsoft, но вход не выполнен. Нажмите «Войти через Microsoft»."
+                        .to_string()
+                })?;
+
+            // Validate current Minecraft access token or refresh silently
+            let check_resp = client
+                .get("https://api.minecraftservices.com/minecraft/profile")
+                .bearer_auth(&ms_token)
+                .send()
+                .await;
+
+            match check_resp {
+                Ok(r) if r.status().is_success() => {
+                    let u = active_settings
+                        .ms_username
+                        .clone()
+                        .filter(|s| !s.is_empty())
+                        .unwrap_or_else(|| offline_nickname.clone());
+                    let id = active_settings
+                        .ms_uuid
+                        .clone()
+                        .filter(|s| !s.is_empty())
+                        .unwrap_or_else(|| offline_minecraft_uuid(&u));
+                    (u, id, ms_token, "msa".to_string())
+                }
+                _ => {
+                    if let Some(ref rt) = active_settings
+                        .ms_refresh_token
+                        .clone()
+                        .filter(|s| !s.trim().is_empty())
+                    {
+                        emit_progress(
+                            &app,
+                            "checking_updates",
+                            "Refreshing Microsoft session...",
+                            3.0,
+                            0,
+                            0,
+                        );
+                        let refreshed = refresh_microsoft_profile(&client, rt).await.map_err(|e| {
+                            format!(
+                                "Сессия Microsoft истекла, выполните вход заново ({})",
+                                e
+                            )
+                        })?;
+                        active_settings.ms_username = Some(refreshed.username.clone());
+                        active_settings.ms_uuid = Some(refreshed.uuid.clone());
+                        active_settings.ms_access_token = Some(refreshed.access_token.clone());
+                        active_settings.ms_refresh_token = Some(refreshed.refresh_token.clone());
+                        let _ = save_settings(active_settings.clone());
+                        (
+                            refreshed.username,
+                            refreshed.uuid,
+                            refreshed.access_token,
+                            "msa".to_string(),
+                        )
+                    } else {
+                        return Err(
+                            "Токен Microsoft истёк. Пожалуйста, войдите через Microsoft заново."
+                                .to_string(),
+                        );
+                    }
+                }
+            }
+        } else {
+            let uuid = offline_minecraft_uuid(&offline_nickname);
+            (
+                offline_nickname,
+                uuid,
+                "0".to_string(),
+                "legacy".to_string(),
+            )
+        };
 
     // 1. Sync official modpack from manifest.json
     let manifest = sync_official_modpack(&app, &client, &game_dir).await?;
@@ -1229,6 +1686,20 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
     tokio::fs::create_dir_all(&libraries_dir)
         .await
         .map_err(|e| e.to_string())?;
+    if natives_dir.exists() {
+        if let Ok(mut entries) = tokio::fs::read_dir(&natives_dir).await {
+            while let Ok(Some(entry)) = entries.next_entry().await {
+                let p = entry.path();
+                if p.extension()
+                    .and_then(|e| e.to_str())
+                    .map(|e| e.eq_ignore_ascii_case("dll"))
+                    .unwrap_or(false)
+                {
+                    let _ = tokio::fs::remove_file(p).await;
+                }
+            }
+        }
+    }
     tokio::fs::create_dir_all(&natives_dir)
         .await
         .map_err(|e| e.to_string())?;
@@ -1257,7 +1728,7 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
         });
     }
 
-    // Vanilla libraries + natives
+    // Vanilla libraries + natives (Windows x64 only)
     if let Some(libs) = mc_profile.get("libraries").and_then(|v| v.as_array()) {
         for lib in libs {
             let rules: Option<Vec<serde_json::Value>> = lib
@@ -1268,11 +1739,18 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
             }
 
             let coords = lib.get("name").and_then(|v| v.as_str()).unwrap_or("");
+            if is_incompatible_native(coords) {
+                continue;
+            }
+
             if let Some(artifact) = lib.pointer("/downloads/artifact") {
                 if let (Some(url), Some(rel_path)) = (
                     artifact.get("url").and_then(|v| v.as_str()),
                     artifact.get("path").and_then(|v| v.as_str()),
                 ) {
+                    if is_incompatible_native(rel_path) {
+                        continue;
+                    }
                     let dest = libraries_dir.join(rel_path);
                     let sha1 = artifact
                         .get("sha1")
@@ -1289,10 +1767,8 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
                         is_native,
                     });
 
-                    if !is_native {
-                        if let Some((_, key)) = maven_coords_to_path_and_key(coords) {
-                            classpath_map.insert(key, dest);
-                        }
+                    if let Some((_, key)) = maven_coords_to_path_and_key(coords) {
+                        classpath_map.insert(key, dest);
                     }
                 }
             }
@@ -1307,19 +1783,21 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
                         classifier.get("url").and_then(|v| v.as_str()),
                         classifier.get("path").and_then(|v| v.as_str()),
                     ) {
-                        download_tasks.push(DownloadTask {
-                            url: url.to_string(),
-                            dest: libraries_dir.join(rel_path),
-                            sha1: classifier
-                                .get("sha1")
-                                .and_then(|v| v.as_str())
-                                .map(String::from),
-                            size: classifier
-                                .get("size")
-                                .and_then(|v| v.as_u64())
-                                .unwrap_or(0),
-                            is_native: true,
-                        });
+                        if !is_incompatible_native(rel_path) {
+                            download_tasks.push(DownloadTask {
+                                url: url.to_string(),
+                                dest: libraries_dir.join(rel_path),
+                                sha1: classifier
+                                    .get("sha1")
+                                    .and_then(|v| v.as_str())
+                                    .map(String::from),
+                                size: classifier
+                                    .get("size")
+                                    .and_then(|v| v.as_u64())
+                                    .unwrap_or(0),
+                                is_native: true,
+                            });
+                        }
                     }
                 }
             }
@@ -1442,13 +1920,20 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
         .to_string();
 
     let xms = settings.ram_mb.min(1024);
+    let natives_str = natives_dir.to_string_lossy().to_string();
     let mut jvm_args = vec![
         format!("-Xmx{}M", settings.ram_mb),
         format!("-Xms{}M", xms),
         "-XX:+UnlockExperimentalVMOptions".to_string(),
         "-XX:+UseG1GC".to_string(),
-        format!("-Djava.library.path={}", natives_dir.to_string_lossy()),
-        "-Dminecraft.launcher.brand=FameVisuals".to_string(),
+        "-XX:HeapDumpPath=MojangTricksIntelDriversForPerformance_javaw.exe_minecraft.exe.heapdump"
+            .to_string(),
+        format!("-Djava.library.path={}", natives_str),
+        format!("-Dorg.lwjgl.librarypath={}", natives_str),
+        format!("-Dorg.lwjgl.system.SharedLibraryExtractPath={}", natives_str),
+        format!("-Djna.tmpdir={}", natives_str),
+        format!("-Dio.netty.native.workdir={}", natives_str),
+        "-Dminecraft.launcher.brand=FameLauncher".to_string(),
         format!("-Dminecraft.launcher.version={}", env!("CARGO_PKG_VERSION")),
     ];
 
@@ -1466,10 +1951,9 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
     jvm_args.push("-cp".to_string());
     jvm_args.push(classpath);
 
-    let uuid = offline_minecraft_uuid(&nickname);
     let mut game_args = vec![
         "--username".to_string(),
-        nickname,
+        launch_username,
         "--version".to_string(),
         format!("{}-Fabric", mc_version),
         "--gameDir".to_string(),
@@ -1479,13 +1963,13 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
         "--assetIndex".to_string(),
         asset_index_id,
         "--uuid".to_string(),
-        uuid,
+        launch_uuid,
         "--accessToken".to_string(),
-        "0".to_string(),
+        launch_token,
         "--userType".to_string(),
-        "legacy".to_string(),
+        launch_user_type,
         "--versionType".to_string(),
-        "FameVisuals".to_string(),
+        "FameLauncher".to_string(),
     ];
 
     if let Some(fabric_game) = fabric_profile
@@ -1535,8 +2019,9 @@ pub fn run() {
             delete_mod,
             install_modrinth_mod,
             fetch_changelog,
+            login_microsoft,
             launch_game
         ])
         .run(tauri::generate_context!())
-        .expect("error while running FameVisuals Launcher");
+        .expect("error while running FameLauncher");
 }

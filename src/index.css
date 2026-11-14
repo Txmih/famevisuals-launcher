@@ -19,37 +19,41 @@
 
 .cyber-grid {
   background-image:
-    linear-gradient(to right, rgba(139, 92, 246, 0.06) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(139, 92, 246, 0.06) 1px, transparent 1px);
+    linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
   background-size: 38px 38px;
 }
 
 .glass-card {
-  background: rgba(17, 17, 30, 0.58);
+  background: rgba(24, 24, 28, 0.78);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 18px 45px -16px rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 18px 45px -16px rgba(0, 0, 0, 0.72);
 }
 
 .glass-panel {
-  background: rgba(12, 12, 22, 0.68);
+  background: rgba(17, 17, 20, 0.85);
   backdrop-filter: blur(22px);
   -webkit-backdrop-filter: blur(22px);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .neon-play-btn {
-  background: linear-gradient(135deg, #7c3aed 0%, #6366f1 50%, #8b5cf6 100%);
+  background: linear-gradient(135deg, #2b2b31 0%, #3f3f46 50%, #222227 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow:
-    0 0 28px rgba(124, 58, 237, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    0 8px 28px rgba(0, 0, 0, 0.65),
+    0 0 22px rgba(255, 255, 255, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
 }
 
 .neon-play-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #36363e 0%, #52525b 50%, #2a2a30 100%);
+  border-color: rgba(255, 255, 255, 0.34);
   box-shadow:
-    0 0 42px rgba(139, 92, 246, 0.72),
-    0 0 14px rgba(99, 102, 241, 0.55),
+    0 10px 36px rgba(0, 0, 0, 0.8),
+    0 0 24px rgba(255, 255, 255, 0.14),
     inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
@@ -64,12 +68,12 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.25);
+  background: rgba(161, 161, 170, 0.26);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(139, 92, 246, 0.5);
+  background: rgba(212, 212, 216, 0.45);
 }
 
 /* Custom RAM slider */
@@ -87,9 +91,9 @@ input[type="range"].ram-slider::-webkit-slider-thumb {
   width: 20px;
   height: 20px;
   border-radius: 9999px;
-  background: linear-gradient(135deg, #a78bfa, #6366f1);
-  border: 2px solid #ffffff;
-  box-shadow: 0 0 14px rgba(139, 92, 246, 0.8);
+  background: linear-gradient(135deg, #e4e4e7, #a1a1aa);
+  border: 2px solid #18181b;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.35);
   cursor: pointer;
   transition: transform 0.15s ease;
 }

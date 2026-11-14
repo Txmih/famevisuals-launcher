@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/schema.json",
-  "productName": "FameVisuals Launcher",
+  "productName": "FameLauncher",
   "version": "1.2.0",
   "identifier": "com.famevisuals.launcher",
   "build": {
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "FameVisuals Launcher",
+        "title": "FameLauncher",
         "width": 1100,
         "height": 680,
         "minWidth": 960,

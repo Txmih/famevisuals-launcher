@@ -17,6 +17,18 @@ export interface TranslationDictionary {
   statLoader: string;
   profileTitle: string;
   profileOfflineBadge: string;
+  profileMicrosoftBadge: string;
+  accountTypeOffline: string;
+  accountTypeMicrosoft: string;
+  msLoginBtn: string;
+  msLoggingIn: string;
+  msLogoutBtn: string;
+  msLoginSuccess: string;
+  msNotSignedInHint: string;
+  msLicensedLabel: string;
+  splashInitCore: string;
+  splashLoadingProfile: string;
+  splashReady: string;
   nicknameLabel: string;
   nicknamePlaceholder: string;
   socialLinksLabel: string;
@@ -86,7 +98,7 @@ export interface TranslationDictionary {
 
 export const TRANSLATIONS: Record<Language, TranslationDictionary> = {
   en: {
-    appName: "FameVisuals Launcher",
+    appName: "FameLauncher",
     navHome: "Home",
     navMods: "Mods",
     navChangelog: "Changelog",
@@ -95,13 +107,25 @@ export const TRANSLATIONS: Record<Language, TranslationDictionary> = {
     checkUpdatesBtn: "Check Updates",
     checkingUpdates: "Checking...",
     upToDateToast: "Launcher is up to date",
-    heroTitle: "Welcome to FameVisuals",
-    heroSubtitle: "Minecraft 1.21.11 • Fabric • Ready for PvP",
+    heroTitle: "Welcome to FameLauncher",
+    heroSubtitle: "Minecraft 1.21.11 • Fabric • FameVisuals Client",
     statMods: "Active Mods",
     statRam: "Allocated RAM",
     statLoader: "Loader",
     profileTitle: "Player Profile",
     profileOfflineBadge: "Offline Account",
+    profileMicrosoftBadge: "Microsoft Account",
+    accountTypeOffline: "Offline",
+    accountTypeMicrosoft: "Microsoft",
+    msLoginBtn: "Sign in with Microsoft",
+    msLoggingIn: "Signing in...",
+    msLogoutBtn: "Sign out",
+    msLoginSuccess: "Signed in as",
+    msNotSignedInHint: "Sign in with your licensed Microsoft / Xbox account to join online-mode servers.",
+    msLicensedLabel: "Licensed Java Edition",
+    splashInitCore: "Initializing FameLauncher core...",
+    splashLoadingProfile: "Loading profile & modpack state...",
+    splashReady: "Ready for PvP",
     nicknameLabel: "In-Game Nickname",
     nicknamePlaceholder: "Enter nickname...",
     socialLinksLabel: "Community",
@@ -169,7 +193,7 @@ export const TRANSLATIONS: Record<Language, TranslationDictionary> = {
     updaterLater: "Later",
   },
   ru: {
-    appName: "FameVisuals Launcher",
+    appName: "FameLauncher",
     navHome: "Главная",
     navMods: "Моды",
     navChangelog: "Изменения",
@@ -178,13 +202,25 @@ export const TRANSLATIONS: Record<Language, TranslationDictionary> = {
     checkUpdatesBtn: "Обновления",
     checkingUpdates: "Проверка...",
     upToDateToast: "Установлена актуальная версия лаунчера",
-    heroTitle: "Добро пожаловать в FameVisuals",
-    heroSubtitle: "Minecraft 1.21.11 • Fabric • Ready for PvP",
+    heroTitle: "Добро пожаловать в FameLauncher",
+    heroSubtitle: "Minecraft 1.21.11 • Fabric • FameVisuals Client",
     statMods: "Активных модов",
     statRam: "Выделено ОЗУ",
     statLoader: "Загрузчик",
     profileTitle: "Профиль игрока",
     profileOfflineBadge: "Офлайн-аккаунт",
+    profileMicrosoftBadge: "Лицензия Microsoft",
+    accountTypeOffline: "Офлайн",
+    accountTypeMicrosoft: "Microsoft",
+    msLoginBtn: "Войти через Microsoft",
+    msLoggingIn: "Авторизация...",
+    msLogoutBtn: "Выйти",
+    msLoginSuccess: "Вход выполнен:",
+    msNotSignedInHint: "Войдите через лицензионный аккаунт Microsoft для игры на серверах с проверкой лицензии.",
+    msLicensedLabel: "Лицензионный профиль Java Edition",
+    splashInitCore: "Инициализация ядра FameLauncher...",
+    splashLoadingProfile: "Загрузка профиля и конфигурации модов...",
+    splashReady: "Готов к запуску",
     nicknameLabel: "Игровой никнейм",
     nicknamePlaceholder: "Введите ник...",
     socialLinksLabel: "Сообщество",
@@ -252,7 +288,7 @@ export const TRANSLATIONS: Record<Language, TranslationDictionary> = {
     updaterLater: "Позже",
   },
   pl: {
-    appName: "FameVisuals Launcher",
+    appName: "FameLauncher",
     navHome: "Główna",
     navMods: "Mody",
     navChangelog: "Zmiany",
@@ -261,13 +297,25 @@ export const TRANSLATIONS: Record<Language, TranslationDictionary> = {
     checkUpdatesBtn: "Aktualizacje",
     checkingUpdates: "Sprawdzanie...",
     upToDateToast: "Masz najnowszą wersję launchera",
-    heroTitle: "Witamy w FameVisuals",
-    heroSubtitle: "Minecraft 1.21.11 • Fabric • Ready for PvP",
+    heroTitle: "Witamy w FameLauncher",
+    heroSubtitle: "Minecraft 1.21.11 • Fabric • FameVisuals Client",
     statMods: "Aktywne mody",
     statRam: "Przydzielony RAM",
     statLoader: "Loader",
     profileTitle: "Profil gracza",
     profileOfflineBadge: "Konto offline",
+    profileMicrosoftBadge: "Konto Microsoft",
+    accountTypeOffline: "Offline",
+    accountTypeMicrosoft: "Microsoft",
+    msLoginBtn: "Zaloguj przez Microsoft",
+    msLoggingIn: "Logowanie...",
+    msLogoutBtn: "Wyloguj",
+    msLoginSuccess: "Zalogowano jako:",
+    msNotSignedInHint: "Zaloguj się przez licencjonowane konto Microsoft, aby grać na serwerach premium.",
+    msLicensedLabel: "Licencjonowany profil Java Edition",
+    splashInitCore: "Inicjalizacja rdzenia FameLauncher...",
+    splashLoadingProfile: "Ładowanie profilu i konfiguracji modów...",
+    splashReady: "Gotowy do gry",
     nicknameLabel: "Nick w grze",
     nicknamePlaceholder: "Wpisz nick...",
     socialLinksLabel: "Społeczność",
