@@ -1,8 +1,68 @@
 [
   {
+    "version": "v2.2.0",
+    "date": "2026-11-15",
+    "isLatest": true,
+    "title": {
+      "en": "InstantKill, 3D Crystal Tint, Main Menu Redesign & Client Optimization",
+      "ru": "InstantKill, 3D-перекраска кристаллов, новый дизайн меню и оптимизация",
+      "pl": "InstantKill, kolorowanie kryształów 3D, nowe menu główne i optymalizacja"
+    },
+    "changes": [
+      {
+        "category": "NEW",
+        "text": {
+          "en": "Added InstantKill module: automatically triggers Shift for 1-2 ticks on the exact tick a Totem of Undying pops (EntityStatus 35) when holding Blood Orb in offhand with an enemy in the 16x16 zone.",
+          "ru": "Добавлен модуль InstantKill: мгновенное зажатие Shift на 1–2 тика ровно в тик сноса тотема (EntityStatus 35), если во второй руке зажат «Шар Крови» и враг находится в зоне 16×16.",
+          "pl": "Dodano moduł InstantKill: natychmiastowe kucnięcie na 1-2 ticki dokładnie w momencie zbicia totemu (EntityStatus 35) z Kulą Krwi w drugiej ręce, gdy wróg jest w strefie 16x16."
+        }
+      },
+      {
+        "category": "IMPROVED",
+        "text": {
+          "en": "Reworked CrystalVisual: full 3D End Crystal model color tinting (RGB/Alpha + client theme sync + solid/fullbright options) directly in the world.",
+          "ru": "Переработан CrystalVisual: полная перекраска и тонирование всей 3D-модели кристалла Энда в мире (выбор RGB/Alpha, синхронизация с темой, сплошная заливка и полная яркость).",
+          "pl": "Przebudowano CrystalVisual: pełne kolorowanie modelu 3D kryształu Endu w świecie (wybór RGB/Alpha, synchronizacja z motywem, pełne wypełnienie i jasność)."
+        }
+      },
+      {
+        "category": "NEW",
+        "text": {
+          "en": "Redesigned Main Menu, Splash Screen & Account Switcher: dark-graphite theme, new wallpaper, grey loading bar, top-left Microsoft/Cracked account switcher, and 3-icon bottom dock (Language, Discord, Telegram).",
+          "ru": "Новый дизайн Главного меню и экрана загрузки: тёмно-графитовый стиль, серая полоса загрузки, переключатель аккаунтов (Microsoft / Cracked) слева сверху и нижний док с 3 иконками (Язык, Discord, Telegram).",
+          "pl": "Nowy wygląd Menu Głównego i ekranu ładowania: ciemnografitowy styl, szary pasek ładowania, przełącznik kont (Microsoft / Cracked) w lewym górnym rogu oraz dolny pasek z 3 ikonami (Język, Discord, Telegram)."
+        }
+      },
+      {
+        "category": "FIX",
+        "text": {
+          "en": "Fixed KillEffects false triggers on chunk unload (strictly filters UNLOADED_TO_CHUNK / UNLOADED_WITH_PLAYER / DISCARDED and checks real player death with UUID deduplication).",
+          "ru": "Исправлено ложное срабатывание KillEffects при выходе игрока из дистанции прорисовки чанков (фильтрация UNLOADED_TO_CHUNK / UNLOADED_WITH_PLAYER и строгая проверка реальной смерти по UUID).",
+          "pl": "Naprawiono fałszywe wyzwalanie KillEffects przy wyładowaniu chunków (filtrowanie UNLOADED_TO_CHUNK / UNLOADED_WITH_PLAYER oraz weryfikacja prawdziwej śmierci po UUID)."
+        }
+      },
+      {
+        "category": "FIX",
+        "text": {
+          "en": "Fixed AutoSwap phantom offhand swap via 1-2 tick movement micro-stop before synchronized inventory transfer, and fixed Event Auto-Waypoints (hardcoded Y=65 and direct deletion in Waypoints GUI).",
+          "ru": "Устранён фантомный свап шара в AutoSwap через микро-остановку на 1–2 тика перед отправкой пакетов; для всех авто-меток ивентов установлена высота Y=65 и добавлено удаление прямо в категории Waypoints.",
+          "pl": "Usunięto fantomową zamianę kuli w AutoSwap poprzez mikro-zatrzymanie na 1-2 ticki; dla automatycznych znaczników wydarzeń ustawiono wysokość Y=65 oraz dodano usuwanie w kategorii Waypoints."
+        }
+      },
+      {
+        "category": "IMPROVED",
+        "text": {
+          "en": "Deep client & .jar optimization: removed .cat command and 75+ MB of legacy uncompressed wallpapers, optimized skyboxes and models, reducing .jar size from 118.8 MB by ~88 MB.",
+          "ru": "Глубокая оптимизация клиента и размера .jar: удалена команда .cat и более 75 МБ старых несжатых обоев, оптимизированы скайбоксы и модели, вес .jar снижен со 118.8 МБ почти в 4 раза.",
+          "pl": "Głęboka optymalizacja klienta i rozmiaru .jar: usunięto komendę .cat oraz ponad 75 MB starych tapet, zoptymalizowano skyboxy i modele, уменьшив rozmiar .jar ze 118.8 MB niemal czterokrotnie."
+        }
+      }
+    ]
+  },
+  {
     "version": "v2.1.0",
     "date": "2026-11-14",
-    "isLatest": true,
+    "isLatest": false,
     "title": {
       "en": "PvP Polish & Official Desktop Launcher",
       "ru": "PvP-обновление и официальный лаунчер",
