@@ -1,6 +1,7 @@
 node_modules/
 dist/
 src-tauri/target/
+bootstrapper/target/
 src-tauri/WixTools/
 *.log
 .DS_Store

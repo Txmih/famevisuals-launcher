@@ -1,10 +1,10 @@
 {
   "version": "1.2.0",
-  "notes": "FameLauncher v1.2.0 — Dark grey UI theme, custom startup splash screen, Microsoft account login, custom Fame icon, and LWJGL 3.3.3 x64 natives fix for Minecraft 1.21.11 (Fabric).",
-  "pub_date": "2026-11-14T17:34:00Z",
+  "notes": "FameLauncher v1.2.0 — Multiplayer fix (offlineDeveloperMode, ViaFabricPlus 4.4.15, isMultiplayerEnabled mixin) and self-extracting WebView2Loader.dll bootstrapper.",
+  "pub_date": "2026-11-14T20:10:28Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUSnNLUm5PUFd3RUN0bDFtTURsbytnS3haWksyRDVuNjJoQWZFNTNwMEtCWUZrd2JjbXRMYklXWlBYcmdPVmdkQWtLL0cyRHNqOHhvSDdWMTIyWGF4MW1KbGFYNWJwWkFBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0Njc3NjQwCWZpbGU6RmFtZUxhdW5jaGVyXzEuMi4wX3g2NC1zZXR1cC5leGUJdmVyc2lvbjoxLjIuMAorNTlxK3dnTHRhZlhscDBYR3BCZ0ZuN1BxN1NiODBLRHlESW9NNml4cis3aG55SmdCWjNIWUU0RG9nVEoyODc1UlZNeTI4ZWEvS01RcEJrbWFYc2VBQT09Cg==",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUSnNLUm5PUFd3RUNtZ3FjV3A5Sjk4cGFzOGJML21CV3RyYUZHbjNzL083VlJpOEg2QmpTMjd1eXFxa3ZxMVlBRWx5RmZFU2xhMndNZU5SbVQ0Y3ZZNjNYand2S2FzNGdBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0Njg3MDI4CWZpbGU6RmFtZUxhdW5jaGVyXzEuMi4wX3g2NC1zZXR1cC5leGUJdmVyc2lvbjoxLjIuMApyNnpZTVppTkhjYzJ6RGZzQ3Z6VXBEbmovNGdmU1JPd0pXQTkzVmFzNGlJVzBrOGQ3ZStUNndGOGh2cDlPNWRha2k5VCt0T1NzZXhSSjZpT2JLWFdBZz09Cg==",
       "url": "https://github.com/Txmih/famevisuals-launcher/releases/download/v1.2.0/FameLauncher_1.2.0_x64-setup.exe"
     }
   }

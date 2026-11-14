@@ -1968,9 +1968,15 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
         launch_token,
         "--userType".to_string(),
         launch_user_type,
+        "--userProperties".to_string(),
+        "{}".to_string(),
         "--versionType".to_string(),
         "FameLauncher".to_string(),
     ];
+
+    if active_settings.account_type != "microsoft" {
+        game_args.push("--offlineDeveloperMode".to_string());
+    }
 
     if let Some(fabric_game) = fabric_profile
         .pointer("/arguments/game")

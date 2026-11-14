@@ -1,0 +1,14 @@
+[package]
+name = "fame-launcher-bootstrapper"
+version = "1.2.0"
+edition = "2021"
+
+[[bin]]
+name = "FameLauncher"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = "s"
+lto = false
+codegen-units = 16
+strip = true
