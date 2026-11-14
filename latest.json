@@ -1,10 +1,10 @@
 {
   "version": "1.2.0",
   "notes": "FameVisuals Launcher v1.2.0 — Initial release for Minecraft 1.21.11 (Fabric) with automatic modpack sync and Modrinth browser.",
-  "pub_date": "2026-11-14T14:00:00Z",
+  "pub_date": "2026-11-14T16:42:00Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUSnNLUm5PUFd3RVBMVjFyNDcrUGpIbEZ1bi9veU4vdCtrOWo1VEkvQTk5bXpwK3JURnpsRUlhVkMrelRoV0x1Ynp1Z1ZMenFiU2R0bzFHU3N1dW5pTUtveUEwU3ZDUWdRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0Njc0NTE0CWZpbGU6RmFtZVZpc3VhbHMgTGF1bmNoZXJfMS4yLjBfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjEuMi4wCmQwamtPb3hDUjdFdGRiYWFHaWVhV1c3RTZ4dU9mYit6YjhXNVFtRXlRQ29tR2RKeHhRL2IzeWJVeHR3WGVEWHkyUHdrbkhoYVJNUzg5RWVTdTcxQUN3PT0K",
       "url": "https://github.com/Txmih/famevisuals-launcher/releases/download/v1.2.0/FameVisuals.Launcher_1.2.0_x64-setup.exe"
     }
   }
