@@ -1,29 +1,29 @@
-﻿{
-    "version":  "2.4.2",
-    "minecraftVersion":  "1.21.11",
-    "loader":  "fabric",
-    "loaderVersion":  "0.19.3",
-    "files":  [
-                  {
-                      "name":  "FameVisuals-1.21.11.jar",
-                      "url":  "https://github.com/Txmih/famevisuals-launcher/releases/download/v1.2.0/FameVisuals-1.21.11.jar",
-                      "sha256":  "ef8a5de382c5541118f87d97f96e77a2e45f32732a55fb219c45c26c96a030b6",
-                      "size":  28328110,
-                      "required":  true
-                  },
-                  {
-                      "name":  "fabric-api-0.141.6+1.21.11.jar",
-                      "url":  "https://github.com/Txmih/famevisuals-launcher/releases/download/v1.2.0/fabric-api-0.141.6+1.21.11.jar",
-                      "sha256":  "bdff7fd7e220085cfad2ff9b1f40dde6534ae0b96cf378f97a374bc54cb9ed0f",
-                      "size":  2426039,
-                      "required":  true
-                  },
-                  {
-                      "name":  "ViaFabricPlus-4.4.15.jar",
-                      "url":  "https://cdn.modrinth.com/data/rIC2XJV4/versions/RM6hveoK/ViaFabricPlus-4.4.15.jar",
-                      "sha256":  "002308aba61f85ff236f9cda391e93c158a9b197674c5a1c75db2afd185f224e",
-                      "size":  27015009,
-                      "required":  true
-                  }
-              ]
+{
+  "version": "2.5.0",
+  "minecraftVersion": "1.21.11",
+  "loader": "fabric",
+  "loaderVersion": "0.19.3",
+  "files": [
+    {
+      "name": "FameVisuals-1.21.11.jar",
+      "url": "https://github.com/Txmih/famevisuals-launcher/releases/download/v1.2.0/FameVisuals-1.21.11.jar",
+      "sha256": "5402c1350f3ee706a2e450e99f61fc88670b3a844c48491664ab1531a74e43b5",
+      "size": 28650325,
+      "required": true
+    },
+    {
+      "name": "fabric-api-0.141.6+1.21.11.jar",
+      "url": "https://github.com/Txmih/famevisuals-launcher/releases/download/v1.2.0/fabric-api-0.141.6+1.21.11.jar",
+      "sha256": "bdff7fd7e220085cfad2ff9b1f40dde6534ae0b96cf378f97a374bc54cb9ed0f",
+      "size": 2426039,
+      "required": true
+    },
+    {
+      "name": "ViaFabricPlus-4.4.15.jar",
+      "url": "https://cdn.modrinth.com/data/rIC2XJV4/versions/RM6hveoK/ViaFabricPlus-4.4.15.jar",
+      "sha256": "002308aba61f85ff236f9cda391e93c158a9b197674c5a1c75db2afd185f224e",
+      "size": 27015009,
+      "required": true
+    }
+  ]
 }
