@@ -1,8 +1,60 @@
 [
   {
-    "version": "v2.6.2",
+    "version": "v2.6.3",
     "date": "2026-11-20",
     "isLatest": true,
+    "title": {
+      "en": "World Theme Sodium Fix, Real Item Edge Glow, Smart Batch AutoSell, Remove Flowers, True Elytra Hitbox & Fixes",
+      "ru": "World Theme для Sodium (берёза и дёрн), свечение краёв ItemESP, умный AutoSell, удаление цветов, точный Elytra Hitbox и фиксы",
+      "pl": "Naprawa World Theme dla Sodium, poświata krawędzi ItemESP, mądry AutoSell, usuwanie kwiatów, dokładny Elytra Hitbox"
+    },
+    "changes": [
+      {
+        "category": "FIX",
+        "text": {
+          "en": "Fixed World Theme on Sodium 0.8.14: added BlockModelsMixin & SodiumColorProviderRegistryMixin so 100% of leaves (including birch, spruce, cherry & pale oak) and dirt/podzol transform into seasonal leaves and turf on both Vanilla and Sodium.",
+          "ru": "Исправлен World Theme на Sodium 0.8.14: добавлены BlockModelsMixin и SodiumColorProviderRegistryMixin — теперь 100% листьев (включая берёзу, ель, вишню и бледный дуб) и вся земля/подзол перекрашиваются в сезонный дёрн и листву и на Vanilla, и на Sodium.",
+          "pl": "Naprawiono World Theme na Sodium 0.8.14: 100% liści (w tym brzoza, świerk, wiśnia) oraz ziemia zmieniają się w sezonową roślinność zarówno na Vanilla, jak i Sodium."
+        }
+      },
+      {
+        "category": "IMPROVED",
+        "text": {
+          "en": "ItemESP: removed floating cubes from LootBeams and replaced 2nd mode with real native Item Edge Glow (raycast line-of-sight occluded — never visible through walls).",
+          "ru": "ItemESP: убраны маленькие парящие кубики из LootBeams, а второй режим переделан в настоящее «Свечение краёв» самого 3D-предмета (с проверкой видимости — строго без просвета сквозь стены).",
+          "pl": "ItemESP: usunięto małe kostki z LootBeams, a drugi tryb zmieniono na prawdziwą poświatę krawędzi 3D przedmiotu (bez prześwitywania przez ściany)."
+        }
+      },
+      {
+        "category": "FIX",
+        "text": {
+          "en": "Overhauled AutoSell: fixed infinite chat spam / refusal to stop when empty or disabled, added smart price caching (parses once, sells up to N configurable stacks of the same item across inventory — default 9 — before re-parsing, immediately parses on item change), and added a dedicated Stop Keybind.",
+          "ru": "Переработан AutoSell: исправлен бесконечный спам в чат и зависание при пустом инвентаре или отключении модуля, добавлен умный кэш цен (парсит 1 раз и продаёт до N стаков этого же предмета по всему инвентарю, по умолчанию 9, затем перепарсивает; при смене предмета парсит сразу) и добавлен отдельный бинд остановки.",
+          "pl": "Przebudowano AutoSell: naprawiono spam na czacie i brak zatrzymywania, dodano pamięć podręczną cen (parsuje raz na domyślnie 9 staków tego samego przedmiotu) oraz osobny klawisz stopu."
+        }
+      },
+      {
+        "category": "NEW",
+        "text": {
+          "en": "Added 'Remove Flowers & Leaf Litter' option to Removals (hides all flowers, pink petals, wildflowers, orange leaf litter, grass, ferns & bushes on both Vanilla and Sodium).",
+          "ru": "В Removals добавлена опция «Убрать цветы и листву на земле» — скрывает все цветы, лепестки, оранжевые опавшие листья (leaf litter), траву, папоротники и кусты на Vanilla и Sodium.",
+          "pl": "Dodano opcję Usuń kwiaty i opadłe liście w Removals (ukrywa kwiaty, płatki, opadłe liście na ziemi, trawę i krzewy na Vanilla i Sodium)."
+        }
+      },
+      {
+        "category": "FIX",
+        "text": {
+          "en": "Fixed Beautifully smooth chat (removed diagonal X jerk — now silky vertical rise) and smooth inventory open animation (triggers cleanly on frame 1 of every container), fixed ReallyWorld Helper Auto /fix all firing outside real Combat Tag, fixed CustomHitbox Elytra/firework hitbox to match the exact hit-registration AABB, and completely removed TotemOptimizer.",
+          "ru": "Исправлены анимации Beautifully (плавный вертикальный чат без дёргания в сторону и чёткая плавная анимация открытия инвентаря/сундуков), исправлено ложное срабатывание /fix all вне реального КТ в ReallyWorld Helper, в CustomHitbox при полёте на фейерверках теперь рисуется точный настоящий хитбокс регистрации удара, а TotemOptimizer полностью удалён.",
+          "pl": "Naprawiono płynny czat i animację ekwipunku w Beautifully, usunięto fałszywe /fix all poza prawdziwym CT w ReallyWorld Helper, poprawiono prawdziwy Elytra Hitbox w CustomHitbox oraz całkowicie usunięto TotemOptimizer."
+        }
+      }
+    ]
+  },
+  {
+    "version": "v2.6.2",
+    "date": "2026-11-20",
+    "isLatest": false,
     "title": {
       "en": "Realistic Sakura Tree, Glowing ItemESP Corners, Loud Kon! Voice, DNS Fallback & Launcher Localization",
       "ru": "Реалистичное дерево Сакуры, светящиеся уголки ItemESP, громкий звук «Кон!», фикс DNS серверов и перевод лаунчера",
