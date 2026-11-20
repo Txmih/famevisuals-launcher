@@ -7,18 +7,27 @@ use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use sysinfo::System;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 use tokio::io::AsyncWriteExt;
+
+static LAUNCH_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
+
+struct LaunchGuard;
+impl Drop for LaunchGuard {
+    fn drop(&mut self) {
+        LAUNCH_IN_PROGRESS.store(false, Ordering::SeqCst);
+    }
+}
 
 const GITHUB_RAW_BASE: &str =
     "https://raw.githubusercontent.com/Txmih/famevisuals-launcher/main";
 const DEFAULT_CHANGELOG_JSON: &str = include_str!("../../changelog.json");
 const DEFAULT_MANIFEST_JSON: &str = include_str!("../../manifest.json");
 const LAUNCHER_USER_AGENT: &str =
-    "FameLauncher/1.3.1 (https://github.com/Txmih/famevisuals-launcher)";
+    "FameLauncher/1.3.2 (https://github.com/Txmih/famevisuals-launcher)";
 const MS_CLIENT_ID: &str = "00000000402b5328";
 const MS_REDIRECT_URI: &str = "https://login.live.com/oauth20_desktop.srf";
 const MS_SCOPE: &str = "service::user.auth.xboxlive.com::MBI_SSL";
@@ -1635,8 +1644,81 @@ async fn login_microsoft(app: AppHandle) -> Result<MicrosoftAccountProfile, Stri
     authenticate_xbox_and_minecraft(&client, &msa_access, msa_refresh).await
 }
 
+fn cleanup_stale_fabric_remaps(game_dir: &Path) {
+    let remapped_dir = game_dir.join(".fabric").join("remappedJars");
+    let Ok(entries) = std::fs::read_dir(&remapped_dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let p = entry.path();
+        if p.is_dir() {
+            if let Ok(sub_entries) = std::fs::read_dir(&p) {
+                for sub in sub_entries.flatten() {
+                    let sp = sub.path();
+                    if sp.is_file() {
+                        let name = sp
+                            .file_name()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or("")
+                            .to_lowercase();
+                        let is_empty_jar = name.ends_with(".jar")
+                            && sp.metadata().map(|m| m.len() == 0).unwrap_or(false);
+                        if name.ends_with(".tmp") || is_empty_jar {
+                            let _ = std::fs::remove_file(&sp);
+                        }
+                    }
+                }
+            }
+        } else if p.is_file() {
+            let name = p
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("")
+                .to_lowercase();
+            if name.ends_with(".tmp") {
+                let _ = std::fs::remove_file(&p);
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn sync_legacy_launcher_exe() {
+    let Ok(cur) = std::env::current_exe() else {
+        return;
+    };
+    let Some(cur_name) = cur.file_name().and_then(|s| s.to_str()) else {
+        return;
+    };
+    if !cur_name.eq_ignore_ascii_case("famevisuals-launcher.exe") {
+        return;
+    }
+    let Some(parent) = cur.parent() else {
+        return;
+    };
+    let legacy = parent.join("FameLauncher.exe");
+    if !legacy.is_file() {
+        return;
+    }
+    let cur_len = cur.metadata().map(|m| m.len()).unwrap_or(0);
+    let legacy_len = legacy.metadata().map(|m| m.len()).unwrap_or(0);
+    let cur_mod = cur.metadata().and_then(|m| m.modified()).ok();
+    let legacy_mod = legacy.metadata().and_then(|m| m.modified()).ok();
+    if cur_len != legacy_len || cur_mod != legacy_mod {
+        let _ = std::fs::copy(&cur, &legacy);
+    }
+}
+
 #[tauri::command]
 async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), String> {
+    if LAUNCH_IN_PROGRESS
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
+        return Err("Игра уже запускается, подождите пару секунд.".to_string());
+    }
+    let _launch_guard = LaunchGuard;
+
     let game_dir = if settings.game_dir.trim().is_empty() {
         default_game_dir()
     } else {
@@ -2193,6 +2275,10 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
         }
     }
 
+    // Clean up any stale/corrupted Fabric remapper .tmp files left by interrupted launches
+    let cleanup_dir = game_dir.clone();
+    let _ = tokio::task::spawn_blocking(move || cleanup_stale_fabric_remaps(&cleanup_dir)).await;
+
     let mut child = std::process::Command::new(&javaw_exe)
         .current_dir(&game_dir)
         .args(&jvm_args)
@@ -2214,6 +2300,9 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "windows")]
+    std::thread::spawn(sync_legacy_launcher_exe);
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())

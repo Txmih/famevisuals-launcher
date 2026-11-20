@@ -246,7 +246,7 @@ export function App() {
   const [systemInfo, setSystemInfo] = useState<SystemInfo>({
     totalRamMb: 16384,
     defaultGameDir: "",
-    launcherVersion: "1.3.1",
+    launcherVersion: "1.3.2",
   });
   const [settings, setSettings] = useState<LauncherSettings>(DEFAULT_SETTINGS);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
