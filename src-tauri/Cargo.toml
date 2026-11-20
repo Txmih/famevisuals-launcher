@@ -1,6 +1,6 @@
 [package]
 name = "famevisuals-launcher"
-version = "1.3.4"
+version = "1.3.5"
 description = "FameVisuals Desktop Launcher for Minecraft 1.21.11 (Fabric)"
 authors = ["Txmih"]
 edition = "2021"

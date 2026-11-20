@@ -1,20 +1,64 @@
 [
   {
-    "version": "v2.6.4",
-    "date": "2026-11-20",
+    "version": "v2.6.5",
+    "date": "2026-11-21",
     "isLatest": true,
     "title": {
-      "en": "Live Globals VPS Backend, .irc Chat, Friends Tab, Visible Item Edge Glow & Smart Time-Based AutoSell",
-      "ru": "Сервер Globals на VPS, чат .irc, вкладка Friends, видимое свечение краёв ItemESP и умный AutoSell по времени",
-      "pl": "Serwer Globals VPS, czat .irc, zakładka Znajomi, widoczna poświata ItemESP i czasowy AutoSell"
+      "en": "Fortnite Emotions & 3D Preview, Native Dark Friends UI, Gmail Auth & Recovery, Friend Cosmetics Sync & Profile Avatars",
+      "ru": "Модуль Emotions (эмоции Fortnite + 3D превью), обновлённый дизайн Friends, вход с Gmail и восстановлением пароля, косметика друзей и профиль с аватарками",
+      "pl": "Moduł Emotions (emotki Fortnite + podgląd 3D), nowy design Znajomych, rejestracja z Gmail, kosmetyki znajomych i profil z awatarem"
     },
     "changes": [
       {
         "category": "NEW",
         "text": {
-          "en": "Launched live 24/7 Globals backend (162.35.56.235:5555) with bcrypt auth, real-time Online/Server friend tracking, Minecraft nickname binding (add friends by Globals login OR MC nick), 1-click quick-add for online FameVisuals players, global .irc chat (2s rate limit), and synced Waypoints & Web Panels.",
-          "ru": "Запущен 24/7 сервер Globals (162.35.56.235:5555): аккаунты с bcrypt, живой онлайн друзей и сервер игры, привязка ника Minecraft (добавление по логину или нику), быстрое добавление игроков с FameVisuals в 1 клик, глобальный чат .irc, синхронизация Waypoints и Web Panels.",
-          "pl": "Uruchomiono serwer Globals 24/7 (162.35.56.235:5555): konta bcrypt, status znajomych i serwer na żywo, powiązanie nicku Minecraft, szybkie dodawanie graczy FameVisuals, czat .irc oraz synchronizacja Waypoints i Web Panels."
+          "en": "Added Emotions module with Fortnite-style radial wheel (key B) and 10 procedural emotes (T-Pose, Griddy, Default Dance, Take The L, Floss, Orange Justice, Electro Shuffle, Dab, Wave, Salute), live 3D grey mannequin preview in ClickGUI, and real-time sync with friends.",
+          "ru": "Добавлен модуль Emotions с колесом эмоций в стиле Fortnite (клавиша B) и 10 танцами (T-Pose, Griddy, Default Dance, Take The L, Floss, Orange Justice, Electro Shuffle, Dab, Wave, Salute), живым 3D-превью серого манекена в ClickGUI и синхронизацией с друзьями.",
+          "pl": "Dodano moduł Emotions z kołem emotek w stylu Fortnite (klawisz B), 10 animacjami, podglądem 3D szarego manekina w ClickGUI oraz synchronizacją ze znajomymi."
+        }
+      },
+      {
+        "category": "NEW",
+        "text": {
+          "en": "Added mandatory Gmail 6-digit code verification & 6-digit password recovery in FameLauncher and client, personal Profile tab with custom avatar upload, automatic Minecraft auth sync, and hidden server endpoints.",
+          "ru": "Добавлена обязательная регистрация с 6-значным кодом на Gmail и восстановление пароля (6-значный код), вкладка «Профиль» с загрузкой собственной аватарки, авто-синхронизация входа между лаунчером и Minecraft, а серверные адреса полностью скрыты из интерфейса.",
+          "pl": "Dodano weryfikację 6-cyfrowym kodem Gmail i odzyskiwanie hasła, zakładkę Profil z własnym awatarem oraz automatyczną synchronizację logowania."
+        }
+      },
+      {
+        "category": "IMPROVED",
+        "text": {
+          "en": "Redesigned Friends & Chat screen in native dark-glass ClickGUI/MainMenu style (no blue stripes), moved Friends button to a sleek bottom dock icon in Main Menu, removed heavy snowball & voice features, and hid public player lists (showing total online count only).",
+          "ru": "Переработан интерфейс окна Friends и чата под единый тёмный стиль ClickGUI и Главного меню (без голубых полос), кнопка друзей перенесена в компактную иконку нижнего дока Главного меню, убраны снежки и войс-чат, скрыты списки случайных игроков онлайн (только общий счётчик).",
+          "pl": "Przeprojektowano ekran Znajomych i czatu w ciemnym stylu ClickGUI/Menu Głównego, przeniesiono ikonę znajomych do dolnego paska, usunięto śnieżki i czat głosowy."
+        }
+      },
+      {
+        "category": "FIX",
+        "text": {
+          "en": "Fixed friend FameVisuals logo badges above heads & in Tab (now matches by UUID and Minecraft nick), fixed WebPanels & Waypoints visibility for friends, and added live sync for friend 3D cosmetics & pets.",
+          "ru": "Исправлено отображение логотипа FameVisuals перед никами друзей над головой и в Табе (поиск по UUID и нику Minecraft), исправлена видимость Web Panels и Waypoints у друзей и добавлена синхронизация 3D-косметики и питомцев друзей.",
+          "pl": "Naprawiono logo FameVisuals przed nickami znajomych, widoczność Web Panels i Waypoints u znajomych oraz synchronizację kosmetyków 3D i zwierzaków."
+        }
+      }
+    ]
+  },
+  {
+    "version": "v2.6.4",
+    "date": "2026-11-20",
+    "isLatest": false,
+    "title": {
+      "en": "Live Friends Backend, .irc Chat, Visible Item Edge Glow & Smart Time-Based AutoSell",
+      "ru": "Облачный сервер Friends, чат .irc, видимое свечение краёв ItemESP и умный AutoSell по времени",
+      "pl": "Serwer Znajomych, czat .irc, widoczna poświata ItemESP i czasowy AutoSell"
+    },
+    "changes": [
+      {
+        "category": "NEW",
+        "text": {
+          "en": "Launched live 24/7 cloud backend with bcrypt auth, real-time Online/Server friend tracking, Minecraft nickname binding (add friends by login OR MC nick), global .irc chat (2s rate limit), and synced Waypoints & Web Panels.",
+          "ru": "Запущен 24/7 облачный сервер: аккаунты с bcrypt, живой онлайн друзей и сервер игры, привязка ника Minecraft (добавление по логину или нику), глобальный чат .irc, синхронизация Waypoints и Web Panels.",
+          "pl": "Uruchomiono serwer 24/7: konta bcrypt, status znajomych i serwer na żywo, powiązanie nicku Minecraft, czat .irc oraz synchronizacja Waypoints i Web Panels."
         }
       },
       {

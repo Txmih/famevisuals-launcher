@@ -27,7 +27,7 @@ const GITHUB_RAW_BASE: &str =
 const DEFAULT_CHANGELOG_JSON: &str = include_str!("../../changelog.json");
 const DEFAULT_MANIFEST_JSON: &str = include_str!("../../manifest.json");
 const LAUNCHER_USER_AGENT: &str =
-    "FameLauncher/1.3.4 (https://github.com/Txmih/famevisuals-launcher)";
+    "FameLauncher/1.3.5 (https://github.com/Txmih/famevisuals-launcher)";
 const MS_CLIENT_ID: &str = "00000000402b5328";
 const MS_REDIRECT_URI: &str = "https://login.live.com/oauth20_desktop.srf";
 const MS_SCOPE: &str = "service::user.auth.xboxlive.com::MBI_SSL";
@@ -85,7 +85,7 @@ impl Default for LauncherSettings {
             ms_uuid: None,
             ms_access_token: None,
             ms_refresh_token: None,
-            globals_server: Some("162.35.56.235:5555".to_string()),
+            globals_server: None,
             globals_login: None,
             globals_token: None,
         }
@@ -320,6 +320,29 @@ fn save_settings(settings: LauncherSettings) -> Result<(), String> {
     }
     let json = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
     std::fs::write(settings_file_path(), json).map_err(|e| e.to_string())?;
+
+    // Auto-sync FameVisuals Minecraft mod auth session so players don't have to log in twice
+    let game_root = if settings.game_dir.trim().is_empty() {
+        default_game_dir()
+    } else {
+        PathBuf::from(&settings.game_dir)
+    };
+    let fv_dir = game_root.join("FameVisuals");
+    let auth_path = fv_dir.join("globals_auth.json");
+    match (&settings.globals_login, &settings.globals_token) {
+        (Some(login), Some(token)) if !login.trim().is_empty() && !token.trim().is_empty() => {
+            if std::fs::create_dir_all(&fv_dir).is_ok() {
+                let auth_json = serde_json::json!({
+                    "login": login.trim(),
+                    "token": token.trim(),
+                });
+                let _ = std::fs::write(&auth_path, auth_json.to_string());
+            }
+        }
+        _ => {
+            let _ = std::fs::remove_file(&auth_path);
+        }
+    }
     Ok(())
 }
 

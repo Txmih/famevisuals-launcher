@@ -31,13 +31,14 @@ import {
   X,
 } from "lucide-react";
 import logoImg from "./assets/logo.png";
-import { FriendsTab, normalizeGlobalsHttpBase, normalizeGlobalsWsUrl, resolveGlobalsServer } from "./FriendsTab";
+import { AuthGate } from "./AuthGate";
+import { getBackendHttpBase, getBackendWsUrl } from "./globalsEndpoint";
+import { ProfileTab } from "./ProfileTab";
 import { TRANSLATIONS } from "./i18n";
 import type {
   AccountType,
   ChangelogEntry,
   GlobalsFriend,
-  GlobalsOnlinePlayer,
   InstalledMod,
   Language,
   LauncherSettings,
@@ -82,7 +83,7 @@ const DEFAULT_SETTINGS: LauncherSettings = {
   msUuid: null,
   msAccessToken: null,
   msRefreshToken: null,
-  globalsServer: "162.35.56.235:5555",
+  globalsServer: null,
   globalsLogin: null,
   globalsToken: null,
 };
@@ -263,7 +264,7 @@ export function App() {
   const [systemInfo, setSystemInfo] = useState<SystemInfo>({
     totalRamMb: 16384,
     defaultGameDir: "",
-    launcherVersion: "1.3.4",
+    launcherVersion: "1.3.5",
   });
   const [settings, setSettings] = useState<LauncherSettings>(DEFAULT_SETTINGS);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -297,12 +298,14 @@ export function App() {
   const [updatePercent, setUpdatePercent] = useState(0);
   const [checkingUpdater, setCheckingUpdater] = useState(false);
 
-  // Globals real-time friends state (WebSocket + HTTP REST)
+  // Account, profile & real-time friends state (WebSocket + HTTP REST)
   const [globalsConnected, setGlobalsConnected] = useState(false);
   const [globalsTotalOnline, setGlobalsTotalOnline] = useState(0);
   const [globalsFriends, setGlobalsFriends] = useState<GlobalsFriend[]>([]);
   const [globalsRequests, setGlobalsRequests] = useState<string[]>([]);
-  const [globalsPlayers, setGlobalsPlayers] = useState<GlobalsOnlinePlayer[]>([]);
+  const [globalsRole, setGlobalsRole] = useState("user");
+  const [globalsAvatar, setGlobalsAvatar] = useState("");
+  const [globalsEmail, setGlobalsEmail] = useState("");
 
   const saveTimeoutRef = useRef<number | null>(null);
   const searchTimeoutRef = useRef<number | null>(null);
@@ -773,40 +776,44 @@ export function App() {
   }, [settings.customWallpaper]);
 
   const refreshGlobalsFriends = useCallback(async () => {
-    if (!settings.globalsToken || !settings.globalsServer) {
+    if (!settings.globalsToken) {
       setGlobalsFriends([]);
       setGlobalsRequests([]);
       return;
     }
     try {
-      const base = normalizeGlobalsHttpBase(settings.globalsServer);
+      const base = getBackendHttpBase();
       const res = await fetch(`${base}/api/me`, {
         headers: { Authorization: `Bearer ${settings.globalsToken}` },
       });
-      if (res.status === 401) {
+      if (res.status === 401 || res.status === 403) {
         updateSettings({ globalsLogin: null, globalsToken: null });
         setGlobalsFriends([]);
         setGlobalsRequests([]);
+        setGlobalsRole("user");
+        setGlobalsAvatar("");
+        setGlobalsEmail("");
         return;
       }
       const data = await res.json();
       if (data.ok) {
         setGlobalsFriends(data.friends || []);
         setGlobalsRequests(data.requests || []);
-        setGlobalsPlayers(data.players || []);
         setGlobalsTotalOnline(Number(data.online || 0));
+        setGlobalsRole(String(data.role || "user"));
+        setGlobalsAvatar(String(data.avatar || ""));
+        setGlobalsEmail(String(data.email || ""));
       }
     } catch {
       // ignore offline
     }
-  }, [settings.globalsServer, settings.globalsToken, updateSettings]);
+  }, [settings.globalsToken, updateSettings]);
 
-  // Persistent real-time WebSocket connection to Globals backend (updates Friends live!)
+  // Persistent real-time WebSocket connection (updates Friends & online count live!)
   useEffect(() => {
     if (!settingsLoaded) return;
-    const server = resolveGlobalsServer(settings.globalsServer);
     const token = (settings.globalsToken || "").trim();
-    if (!server || !token) {
+    if (!token) {
       setGlobalsConnected(false);
       return;
     }
@@ -824,7 +831,7 @@ export function App() {
             ? settings.msUsername
             : settings.nickname || ""
         );
-        const wsUrl = `${normalizeGlobalsWsUrl(server)}?token=${encodeURIComponent(token)}&nick=${nick}`;
+        const wsUrl = `${getBackendWsUrl()}?token=${encodeURIComponent(token)}&nick=${nick}`;
         ws = new WebSocket(wsUrl);
         ws.onopen = () => {
           setGlobalsConnected(true);
@@ -842,14 +849,16 @@ export function App() {
               setGlobalsFriends(msg.list);
             } else if (msg.t === "requests" && Array.isArray(msg.list)) {
               setGlobalsRequests(msg.list);
-            } else if (msg.t === "fame_players" && Array.isArray(msg.list)) {
-              setGlobalsPlayers(msg.list);
             } else if (msg.t === "online") {
               setGlobalsTotalOnline(Number(msg.total || 0));
+            } else if (msg.t === "auth" && msg.ok === true && msg.role) {
+              setGlobalsRole(String(msg.role));
             } else if (msg.t === "auth" && msg.ok === false) {
               updateSettings({ globalsLogin: null, globalsToken: null });
               setGlobalsFriends([]);
               setGlobalsRequests([]);
+              setGlobalsRole("user");
+              setGlobalsAvatar("");
             }
           } catch {
             // ignore malformed
@@ -887,7 +896,6 @@ export function App() {
     };
   }, [
     settingsLoaded,
-    settings.globalsServer,
     settings.globalsToken,
     settings.nickname,
     settings.msUsername,
@@ -904,8 +912,13 @@ export function App() {
   }[] = [
     { id: "home", label: t.navHome, icon: IconHome },
     {
-      id: "friends",
-      label: t.navFriends,
+      id: "profile",
+      label:
+        settings.language === "ru"
+          ? "Профиль"
+          : settings.language === "pl"
+            ? "Profil"
+            : "Profile",
       icon: IconFriends,
       badge: globalsRequests.length > 0 ? globalsRequests.length : undefined,
     },
@@ -952,6 +965,47 @@ export function App() {
         ? "Uruchom"
         : "Launch";
 
+  // Mandatory Auth Gate: require account Sign In / Gmail-verified Registration before accessing launcher
+  if (settingsLoaded && (!settings.globalsLogin || !settings.globalsToken)) {
+    return (
+      <>
+        <AuthGate
+          language={settings.language}
+          onChangeLanguage={(lang) => updateSettings({ language: lang })}
+          showToast={showToast}
+          pendingUpdateVersion={pendingUpdate?.version ?? null}
+          updatingLauncher={updatingLauncher}
+          updatePercent={updatePercent}
+          onInstallUpdate={() => void handleInstallUpdater()}
+          onAuthenticated={({ login, token, role, avatar }) => {
+            setGlobalsRole(role);
+            setGlobalsAvatar(avatar);
+            updateSettings({ globalsLogin: login, globalsToken: token });
+            showToast(
+              settings.language === "ru" ? `Добро пожаловать, ${login}!` : `Welcome, ${login}!`,
+              "success"
+            );
+          }}
+        />
+        {toast && (
+          <div className="pointer-events-none fixed bottom-5 right-5 z-50">
+            <div
+              className={`rounded-xl border px-4 py-2.5 text-xs font-medium shadow-xl backdrop-blur-md ${
+                toast.type === "error"
+                  ? "border-red-500/30 bg-red-950/90 text-red-200"
+                  : toast.type === "success"
+                    ? "border-emerald-500/30 bg-emerald-950/90 text-emerald-200"
+                    : "border-white/15 bg-zinc-900/95 text-zinc-100"
+              }`}
+            >
+              {toast.text}
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#090a0d] text-zinc-100">
       {/* Slim Left Icon Navigation Rail (ONLY useful tabs — no shop, no friends, no bloat) */}
@@ -993,7 +1047,15 @@ export function App() {
                   {active && (
                     <span className="absolute -left-[12px] h-5 w-[3px] rounded-r-full bg-white" />
                   )}
-                  <Icon className="h-[19px] w-[19px]" />
+                  {item.id === "profile" && globalsAvatar ? (
+                    <img
+                      src={`data:image/png;base64,${globalsAvatar}`}
+                      alt="Profile"
+                      className="h-6 w-6 rounded-lg object-cover ring-1 ring-white/20"
+                    />
+                  ) : (
+                    <Icon className="h-[19px] w-[19px]" />
+                  )}
                   {item.badge && item.badge > 0 && (
                     <span className="absolute right-1.5 top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber-400 px-1 text-[9px] font-bold text-zinc-950">
                       {item.badge}
@@ -1667,27 +1729,29 @@ export function App() {
             </div>
           )}
 
-          {/* ======================== FRIENDS TAB ======================== */}
-          {activeTab === "friends" && (
-            <FriendsTab
+          {/* ======================== PROFILE & FRIENDS TAB ======================== */}
+          {activeTab === "profile" && (
+            <ProfileTab
               language={settings.language}
               settings={settings}
-              updateSettings={updateSettings}
-              showToast={showToast}
+              userRole={globalsRole}
+              userAvatar={globalsAvatar}
+              userEmail={globalsEmail}
               connected={globalsConnected}
               totalOnline={globalsTotalOnline}
               friends={globalsFriends}
               requests={globalsRequests}
-              onlinePlayers={globalsPlayers}
+              showToast={showToast}
               onRefresh={refreshGlobalsFriends}
-              onAuthChanged={(login, token) => {
-                updateSettings({ globalsLogin: login, globalsToken: token });
-                if (!login || !token) {
-                  setGlobalsFriends([]);
-                  setGlobalsRequests([]);
-                  setGlobalsPlayers([]);
-                  setGlobalsConnected(false);
-                }
+              onAvatarUpdated={(newB64) => setGlobalsAvatar(newB64)}
+              onSignOut={() => {
+                updateSettings({ globalsLogin: null, globalsToken: null });
+                setGlobalsFriends([]);
+                setGlobalsRequests([]);
+                setGlobalsRole("user");
+                setGlobalsAvatar("");
+                setGlobalsEmail("");
+                setGlobalsConnected(false);
               }}
             />
           )}

@@ -1,6 +1,6 @@
 export type Language = "en" | "ru" | "pl";
 
-export type TabId = "home" | "friends" | "mods" | "changelog" | "settings";
+export type TabId = "home" | "profile" | "mods" | "changelog" | "settings";
 
 export type AccountType = "offline" | "microsoft";
 
@@ -12,6 +12,8 @@ export interface GlobalsFriend {
   anarchy?: string;
   nick?: string;
   source?: string;
+  role?: string;
+  avatar?: string;
 }
 
 export interface GlobalsOnlinePlayer {
