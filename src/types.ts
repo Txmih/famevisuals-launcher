@@ -1,8 +1,27 @@
 export type Language = "en" | "ru" | "pl";
 
-export type TabId = "home" | "mods" | "changelog" | "settings";
+export type TabId = "home" | "friends" | "mods" | "changelog" | "settings";
 
 export type AccountType = "offline" | "microsoft";
+
+export interface GlobalsFriend {
+  name: string;
+  online: boolean;
+  activity: string;
+  server: string;
+  anarchy?: string;
+  nick?: string;
+  source?: string;
+}
+
+export interface GlobalsOnlinePlayer {
+  login: string;
+  nick?: string;
+  server: string;
+  activity: string;
+  source?: string;
+  same_server?: boolean;
+}
 
 export interface LauncherSettings {
   nickname: string;
@@ -15,6 +34,9 @@ export interface LauncherSettings {
   msUuid?: string | null;
   msAccessToken?: string | null;
   msRefreshToken?: string | null;
+  globalsServer?: string | null;
+  globalsLogin?: string | null;
+  globalsToken?: string | null;
 }
 
 export interface MicrosoftAccountProfile {

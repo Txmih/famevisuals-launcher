@@ -31,10 +31,13 @@ import {
   X,
 } from "lucide-react";
 import logoImg from "./assets/logo.png";
+import { FriendsTab, normalizeGlobalsHttpBase, normalizeGlobalsWsUrl, resolveGlobalsServer } from "./FriendsTab";
 import { TRANSLATIONS } from "./i18n";
 import type {
   AccountType,
   ChangelogEntry,
+  GlobalsFriend,
+  GlobalsOnlinePlayer,
   InstalledMod,
   Language,
   LauncherSettings,
@@ -79,6 +82,9 @@ const DEFAULT_SETTINGS: LauncherSettings = {
   msUuid: null,
   msAccessToken: null,
   msRefreshToken: null,
+  globalsServer: "162.35.56.235:5555",
+  globalsLogin: null,
+  globalsToken: null,
 };
 
 const CATEGORY_STYLES: Record<
@@ -108,6 +114,17 @@ function IconHome({ className = "h-[19px] w-[19px]" }: { className?: string }) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <path d="M3 10.5L12 3l9 7.5" />
       <path d="M5 9.5V20a1 1 0 0 0 1 1h4.5v-5.5a1.5 1.5 0 0 1 3 0V21H18a1 1 0 0 0 1-1V9.5" />
+    </svg>
+  );
+}
+
+function IconFriends({ className = "h-[19px] w-[19px]" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
     </svg>
   );
 }
@@ -246,7 +263,7 @@ export function App() {
   const [systemInfo, setSystemInfo] = useState<SystemInfo>({
     totalRamMb: 16384,
     defaultGameDir: "",
-    launcherVersion: "1.3.3",
+    launcherVersion: "1.3.4",
   });
   const [settings, setSettings] = useState<LauncherSettings>(DEFAULT_SETTINGS);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -279,6 +296,13 @@ export function App() {
   const [updatingLauncher, setUpdatingLauncher] = useState(false);
   const [updatePercent, setUpdatePercent] = useState(0);
   const [checkingUpdater, setCheckingUpdater] = useState(false);
+
+  // Globals real-time friends state (WebSocket + HTTP REST)
+  const [globalsConnected, setGlobalsConnected] = useState(false);
+  const [globalsTotalOnline, setGlobalsTotalOnline] = useState(0);
+  const [globalsFriends, setGlobalsFriends] = useState<GlobalsFriend[]>([]);
+  const [globalsRequests, setGlobalsRequests] = useState<string[]>([]);
+  const [globalsPlayers, setGlobalsPlayers] = useState<GlobalsOnlinePlayer[]>([]);
 
   const saveTimeoutRef = useRef<number | null>(null);
   const searchTimeoutRef = useRef<number | null>(null);
@@ -748,12 +772,143 @@ export function App() {
     }
   }, [settings.customWallpaper]);
 
+  const refreshGlobalsFriends = useCallback(async () => {
+    if (!settings.globalsToken || !settings.globalsServer) {
+      setGlobalsFriends([]);
+      setGlobalsRequests([]);
+      return;
+    }
+    try {
+      const base = normalizeGlobalsHttpBase(settings.globalsServer);
+      const res = await fetch(`${base}/api/me`, {
+        headers: { Authorization: `Bearer ${settings.globalsToken}` },
+      });
+      if (res.status === 401) {
+        updateSettings({ globalsLogin: null, globalsToken: null });
+        setGlobalsFriends([]);
+        setGlobalsRequests([]);
+        return;
+      }
+      const data = await res.json();
+      if (data.ok) {
+        setGlobalsFriends(data.friends || []);
+        setGlobalsRequests(data.requests || []);
+        setGlobalsPlayers(data.players || []);
+        setGlobalsTotalOnline(Number(data.online || 0));
+      }
+    } catch {
+      // ignore offline
+    }
+  }, [settings.globalsServer, settings.globalsToken, updateSettings]);
+
+  // Persistent real-time WebSocket connection to Globals backend (updates Friends live!)
+  useEffect(() => {
+    if (!settingsLoaded) return;
+    const server = resolveGlobalsServer(settings.globalsServer);
+    const token = (settings.globalsToken || "").trim();
+    if (!server || !token) {
+      setGlobalsConnected(false);
+      return;
+    }
+
+    let ws: WebSocket | null = null;
+    let closed = false;
+    let reconnectTimer: number | null = null;
+    let pingTimer: number | null = null;
+
+    const connect = () => {
+      if (closed) return;
+      try {
+        const nick = encodeURIComponent(
+          settings.accountType === "microsoft" && settings.msUsername
+            ? settings.msUsername
+            : settings.nickname || ""
+        );
+        const wsUrl = `${normalizeGlobalsWsUrl(server)}?token=${encodeURIComponent(token)}&nick=${nick}`;
+        ws = new WebSocket(wsUrl);
+        ws.onopen = () => {
+          setGlobalsConnected(true);
+          if (pingTimer) window.clearInterval(pingTimer);
+          pingTimer = window.setInterval(() => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ t: "ping" }));
+            }
+          }, 25000);
+        };
+        ws.onmessage = (ev) => {
+          try {
+            const msg = JSON.parse(ev.data);
+            if (msg.t === "friends" && Array.isArray(msg.list)) {
+              setGlobalsFriends(msg.list);
+            } else if (msg.t === "requests" && Array.isArray(msg.list)) {
+              setGlobalsRequests(msg.list);
+            } else if (msg.t === "fame_players" && Array.isArray(msg.list)) {
+              setGlobalsPlayers(msg.list);
+            } else if (msg.t === "online") {
+              setGlobalsTotalOnline(Number(msg.total || 0));
+            } else if (msg.t === "auth" && msg.ok === false) {
+              updateSettings({ globalsLogin: null, globalsToken: null });
+              setGlobalsFriends([]);
+              setGlobalsRequests([]);
+            }
+          } catch {
+            // ignore malformed
+          }
+        };
+        ws.onclose = () => {
+          setGlobalsConnected(false);
+          if (pingTimer) {
+            window.clearInterval(pingTimer);
+            pingTimer = null;
+          }
+          if (!closed) {
+            reconnectTimer = window.setTimeout(connect, 5000);
+          }
+        };
+        ws.onerror = () => {
+          ws?.close();
+        };
+      } catch {
+        setGlobalsConnected(false);
+        if (!closed) {
+          reconnectTimer = window.setTimeout(connect, 5000);
+        }
+      }
+    };
+
+    void refreshGlobalsFriends();
+    connect();
+
+    return () => {
+      closed = true;
+      if (reconnectTimer) window.clearTimeout(reconnectTimer);
+      if (pingTimer) window.clearInterval(pingTimer);
+      ws?.close();
+    };
+  }, [
+    settingsLoaded,
+    settings.globalsServer,
+    settings.globalsToken,
+    settings.nickname,
+    settings.msUsername,
+    settings.accountType,
+    refreshGlobalsFriends,
+    updateSettings,
+  ]);
+
   const navItems: {
     id: TabId;
     label: string;
     icon: React.ComponentType<{ className?: string }>;
+    badge?: number;
   }[] = [
     { id: "home", label: t.navHome, icon: IconHome },
+    {
+      id: "friends",
+      label: t.navFriends,
+      icon: IconFriends,
+      badge: globalsRequests.length > 0 ? globalsRequests.length : undefined,
+    },
     { id: "mods", label: t.navMods, icon: IconMods },
     { id: "changelog", label: t.navChangelog, icon: IconChangelog },
     { id: "settings", label: t.navSettings, icon: IconSettings },
@@ -839,6 +994,11 @@ export function App() {
                     <span className="absolute -left-[12px] h-5 w-[3px] rounded-r-full bg-white" />
                   )}
                   <Icon className="h-[19px] w-[19px]" />
+                  {item.badge && item.badge > 0 && (
+                    <span className="absolute right-1.5 top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber-400 px-1 text-[9px] font-bold text-zinc-950">
+                      {item.badge}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -1505,6 +1665,31 @@ export function App() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* ======================== FRIENDS TAB ======================== */}
+          {activeTab === "friends" && (
+            <FriendsTab
+              language={settings.language}
+              settings={settings}
+              updateSettings={updateSettings}
+              showToast={showToast}
+              connected={globalsConnected}
+              totalOnline={globalsTotalOnline}
+              friends={globalsFriends}
+              requests={globalsRequests}
+              onlinePlayers={globalsPlayers}
+              onRefresh={refreshGlobalsFriends}
+              onAuthChanged={(login, token) => {
+                updateSettings({ globalsLogin: login, globalsToken: token });
+                if (!login || !token) {
+                  setGlobalsFriends([]);
+                  setGlobalsRequests([]);
+                  setGlobalsPlayers([]);
+                  setGlobalsConnected(false);
+                }
+              }}
+            />
           )}
 
           {/* ======================== CHANGELOG TAB ======================== */}

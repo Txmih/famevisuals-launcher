@@ -27,7 +27,7 @@ const GITHUB_RAW_BASE: &str =
 const DEFAULT_CHANGELOG_JSON: &str = include_str!("../../changelog.json");
 const DEFAULT_MANIFEST_JSON: &str = include_str!("../../manifest.json");
 const LAUNCHER_USER_AGENT: &str =
-    "FameLauncher/1.3.3 (https://github.com/Txmih/famevisuals-launcher)";
+    "FameLauncher/1.3.4 (https://github.com/Txmih/famevisuals-launcher)";
 const MS_CLIENT_ID: &str = "00000000402b5328";
 const MS_REDIRECT_URI: &str = "https://login.live.com/oauth20_desktop.srf";
 const MS_SCOPE: &str = "service::user.auth.xboxlive.com::MBI_SSL";
@@ -55,6 +55,12 @@ pub struct LauncherSettings {
     pub ms_access_token: Option<String>,
     #[serde(default)]
     pub ms_refresh_token: Option<String>,
+    #[serde(default)]
+    pub globals_server: Option<String>,
+    #[serde(default)]
+    pub globals_login: Option<String>,
+    #[serde(default)]
+    pub globals_token: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,6 +85,9 @@ impl Default for LauncherSettings {
             ms_uuid: None,
             ms_access_token: None,
             ms_refresh_token: None,
+            globals_server: Some("162.35.56.235:5555".to_string()),
+            globals_login: None,
+            globals_token: None,
         }
     }
 }

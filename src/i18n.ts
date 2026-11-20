@@ -3,6 +3,7 @@ import type { Language } from "./types";
 export interface TranslationDictionary {
   appName: string;
   navHome: string;
+  navFriends: string;
   navMods: string;
   navChangelog: string;
   navSettings: string;
@@ -103,6 +104,7 @@ export const TRANSLATIONS: Record<Language, TranslationDictionary> = {
   en: {
     appName: "FameLauncher",
     navHome: "Home",
+    navFriends: "Friends",
     navMods: "Mods",
     navChangelog: "Changelog",
     navSettings: "Settings",
@@ -201,6 +203,7 @@ export const TRANSLATIONS: Record<Language, TranslationDictionary> = {
   ru: {
     appName: "FameLauncher",
     navHome: "Главная",
+    navFriends: "Друзья",
     navMods: "Моды",
     navChangelog: "Изменения",
     navSettings: "Настройки",
@@ -299,6 +302,7 @@ export const TRANSLATIONS: Record<Language, TranslationDictionary> = {
   pl: {
     appName: "FameLauncher",
     navHome: "Główna",
+    navFriends: "Znajomi",
     navMods: "Mody",
     navChangelog: "Zmiany",
     navSettings: "Ustawienia",

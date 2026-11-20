@@ -1,8 +1,44 @@
 [
   {
-    "version": "v2.6.3",
+    "version": "v2.6.4",
     "date": "2026-11-20",
     "isLatest": true,
+    "title": {
+      "en": "Live Globals VPS Backend, .irc Chat, Friends Tab, Visible Item Edge Glow & Smart Time-Based AutoSell",
+      "ru": "Сервер Globals на VPS, чат .irc, вкладка Friends, видимое свечение краёв ItemESP и умный AutoSell по времени",
+      "pl": "Serwer Globals VPS, czat .irc, zakładka Znajomi, widoczna poświata ItemESP i czasowy AutoSell"
+    },
+    "changes": [
+      {
+        "category": "NEW",
+        "text": {
+          "en": "Launched live 24/7 Globals backend (162.35.56.235:5555) with bcrypt auth, real-time Online/Server friend tracking, Minecraft nickname binding (add friends by Globals login OR MC nick), 1-click quick-add for online FameVisuals players, global .irc chat (2s rate limit), and synced Waypoints & Web Panels.",
+          "ru": "Запущен 24/7 сервер Globals (162.35.56.235:5555): аккаунты с bcrypt, живой онлайн друзей и сервер игры, привязка ника Minecraft (добавление по логину или нику), быстрое добавление игроков с FameVisuals в 1 клик, глобальный чат .irc, синхронизация Waypoints и Web Panels.",
+          "pl": "Uruchomiono serwer Globals 24/7 (162.35.56.235:5555): konta bcrypt, status znajomych i serwer na żywo, powiązanie nicku Minecraft, szybkie dodawanie graczy FameVisuals, czat .irc oraz synchronizacja Waypoints i Web Panels."
+        }
+      },
+      {
+        "category": "NEW",
+        "text": {
+          "en": "Added theme-matched Friends panel in Minecraft Main Menu, upgraded ClickGUI Friends tab with incoming requests & online FameVisuals players, and added a real-time WebSocket Friends tab to FameLauncher v1.3.4.",
+          "ru": "Добавлена панель Friends под стиль темы в Главном меню Minecraft, обновлён раздел Друзья в ClickGUI (заявки + игроки с FameVisuals онлайн) и добавлена вкладка «Друзья» с WebSocket в реальном времени в FameLauncher v1.3.4.",
+          "pl": "Dodano panel Znajomi w Menu Głównym, rozbudowano zakładkę Znajomi w ClickGUI oraz dodano zakładkę Znajomi z WebSocket na żywo w FameLauncher v1.3.4."
+        }
+      },
+      {
+        "category": "FIX",
+        "text": {
+          "en": "Fixed ItemESP 2nd mode (Item Edge Glow) visibility across all shader/EntityESP setups (luminous depth-tested edge halo + rim outline, zero wallhack) and upgraded AutoSell with time-based re-parsing, full item-type depletion before switching, and fixed Russian market search names (e.g. Redstone -> 'Редстоун') with automatic fallback retries.",
+          "ru": "Исправлена видимость 2-го режима ItemESP («Свечение краёв») при любых настройках EntityESP (чёткое неоновое свечение вокруг краёв предмета, строго без просвета сквозь стены); в AutoSell перепарсинг переведён на таймер по времени (сек), продаётся весь 1-й вид предметов до конца перед переходом ко 2-му, исправлены русские названия для /market (Редстоун вместо «Редстоуновая пыль» и др.) + авто-повтор поиска.",
+          "pl": "Naprawiono widoczność 2. trybu ItemESP (Poświata krawędzi) oraz ulepszono AutoSell o czasowy interwał parsowania i poprawione rosyjskie nazwy przedmiotów w /market."
+        }
+      }
+    ]
+  },
+  {
+    "version": "v2.6.3",
+    "date": "2026-11-20",
+    "isLatest": false,
     "title": {
       "en": "World Theme Sodium Fix, Real Item Edge Glow, Smart Batch AutoSell, Remove Flowers, True Elytra Hitbox & Fixes",
       "ru": "World Theme для Sodium (берёза и дёрн), свечение краёв ItemESP, умный AutoSell, удаление цветов, точный Elytra Hitbox и фиксы",
