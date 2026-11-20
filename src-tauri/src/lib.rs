@@ -27,7 +27,7 @@ const GITHUB_RAW_BASE: &str =
 const DEFAULT_CHANGELOG_JSON: &str = include_str!("../../changelog.json");
 const DEFAULT_MANIFEST_JSON: &str = include_str!("../../manifest.json");
 const LAUNCHER_USER_AGENT: &str =
-    "FameLauncher/1.3.2 (https://github.com/Txmih/famevisuals-launcher)";
+    "FameLauncher/1.3.3 (https://github.com/Txmih/famevisuals-launcher)";
 const MS_CLIENT_ID: &str = "00000000402b5328";
 const MS_REDIRECT_URI: &str = "https://login.live.com/oauth20_desktop.srf";
 const MS_SCOPE: &str = "service::user.auth.xboxlive.com::MBI_SSL";
@@ -142,7 +142,7 @@ fn default_loader() -> String {
 }
 
 fn default_loader_version() -> String {
-    "0.19.3".to_string()
+    "0.20.1".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -1890,11 +1890,23 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
         .await
         .map_err(|e| e.to_string())?;
 
-    let fabric_profile: serde_json::Value = if fabric_json_path.is_file() {
-        let raw = tokio::fs::read_to_string(&fabric_json_path)
+    let cached_fabric: Option<serde_json::Value> = if fabric_json_path.is_file() {
+        tokio::fs::read_to_string(&fabric_json_path)
             .await
-            .map_err(|e| e.to_string())?;
-        serde_json::from_str(&raw).map_err(|e| e.to_string())?
+            .ok()
+            .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
+            .filter(|val| {
+                val.get("id")
+                    .and_then(|v| v.as_str())
+                    .map(|id| id.contains(&manifest.loader_version))
+                    .unwrap_or(false)
+            })
+    } else {
+        None
+    };
+
+    let fabric_profile: serde_json::Value = if let Some(cached) = cached_fabric {
+        cached
     } else {
         let primary_url = format!(
             "https://meta.fabricmc.net/v2/versions/loader/{}/{}/profile/json",

@@ -1,8 +1,44 @@
 [
   {
-    "version": "v2.6.1",
+    "version": "v2.6.2",
     "date": "2026-11-20",
     "isLatest": true,
+    "title": {
+      "en": "Realistic Sakura Tree, Glowing ItemESP Corners, Loud Kon! Voice, DNS Fallback & Launcher Localization",
+      "ru": "Реалистичное дерево Сакуры, светящиеся уголки ItemESP, громкий звук «Кон!», фикс DNS серверов и перевод лаунчера",
+      "pl": "Realistyczne drzewo Sakury, świecące narożniki ItemESP, głośny głos Kon!, naprawa DNS i tłumaczenie launchera"
+    },
+    "changes": [
+      {
+        "category": "IMPROVED",
+        "text": {
+          "en": "Rebuilt Sakura Kill Effect tree with an organic 10-segment curved trunk, 6 gnarled buttress roots, multi-level arched round branches, volumetric shaded blossom clouds & weeping flowers.",
+          "ru": "Переделано дерево Сакуры в Kill Effects: органичный изогнутый ствол, 6 узловатых корней, дугообразные ветви с круглым сечением, объёмная многослойная крона со светотенью и свисающие соцветия.",
+          "pl": "Przebudowano drzewo Sakury w Kill Effects: organiczny zakrzywiony pień, korzenie, okrągłe gałęzie i wielowarstwowa korona z cieniowaniem."
+        }
+      },
+      {
+        "category": "IMPROVED",
+        "text": {
+          "en": "Upgraded ItemESP 2nd mode to Glowing 3D Corner Brackets (strictly depth-tested, zero wallhack) alongside LootBeams, and removed watches, shoulder companions & pet skins from Cosmetics.",
+          "ru": "Второй режим ItemESP переделан в «Светящиеся уголки» вокруг предмета (строго без просвета сквозь стены) наряду с LootBeams; из Косметики убраны часы, спутники на плечо и скины питомцев.",
+          "pl": "Drugi tryb ItemESP zmieniono na świecące narożniki 3D (bez prześwitywania przez ściany) obok LootBeams; usunięto zegarki, towarzyszy i skórki zwierzaków."
+        }
+      },
+      {
+        "category": "FIX",
+        "text": {
+          "en": "Boosted and converted MaceHelper 'Kon!' audio to loud stereo 44.1kHz PCM (+12 dB) with SourceDataLine fallback, added Cloudflare/Google DNS+SRV fallback resolver to eliminate 'Unknown host' server errors, upgraded Fabric Loader to 0.20.1, and fully localized launcher badges.",
+          "ru": "Усилена в 4 раза и переведена в стерео озвучка «Кон!» в MaceHelper (+резервный аудио-движок), добавлен встроенный резервный DNS/SRV-резолвер Cloudflare 1.1.1.1 / Google 8.8.8.8 против ошибки «Неизвестный сервер», обновлён Fabric Loader до 0.20.1 и переведены все бейджи лаунчера.",
+          "pl": "Wzmocniono 4x głos Kon! w MaceHelper do stereo PCM, dodano zapasowy resolver DNS/SRV (1.1.1.1 / 8.8.8.8) eliminujący błąd Unknown host, zaktualizowano Fabric Loader do 0.20.1 i przetłumaczono etykiety launchera."
+        }
+      }
+    ]
+  },
+  {
+    "version": "v2.6.1",
+    "date": "2026-11-20",
+    "isLatest": false,
     "title": {
       "en": "Kon! Fox Devil Finisher, AutoSell Market/AH Overhaul, Legit LootBeams, 3D Pet Skins & World Theme Upgrade",
       "ru": "Добивание «Кон!» (Лисий Демон), новый парсер AutoSell (/market и /ah), LootBeams, скины питомцев и World Theme",

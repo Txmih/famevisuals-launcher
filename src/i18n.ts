@@ -72,6 +72,9 @@ export interface TranslationDictionary {
   changelogLatestBadge: string;
   changelogOfflineNote: string;
   changelogRefresh: string;
+  changelogCatNew: string;
+  changelogCatFix: string;
+  changelogCatImproved: string;
   settingsTitle: string;
   settingsSubtitle: string;
   settingsGameDirTitle: string;
@@ -169,6 +172,9 @@ export const TRANSLATIONS: Record<Language, TranslationDictionary> = {
     changelogLatestBadge: "Latest",
     changelogOfflineNote: "Offline cache active",
     changelogRefresh: "Refresh",
+    changelogCatNew: "NEW",
+    changelogCatFix: "FIX",
+    changelogCatImproved: "IMPROVED",
     settingsTitle: "Launcher Settings",
     settingsSubtitle: "Configure game directory, JVM memory allocation, language and appearance",
     settingsGameDirTitle: "Game Directory",
@@ -242,8 +248,8 @@ export const TRANSLATIONS: Record<Language, TranslationDictionary> = {
     modsTabModrinth: "Скачать с Modrinth",
     modsRefresh: "Обновить",
     modsOpenFolder: "Открыть папку модов",
-    modsOfficialBadge: "Official",
-    modsCustomBadge: "Custom",
+    modsOfficialBadge: "Официальный",
+    modsCustomBadge: "Свой",
     modsDisabledBadge: "Отключён",
     modsEmptyInstalled: "Моды пока не установлены",
     modsEmptyInstalledHint: "Нажмите ИГРАТЬ для загрузки официального модпака или установите моды из Modrinth.",
@@ -264,6 +270,9 @@ export const TRANSLATIONS: Record<Language, TranslationDictionary> = {
     changelogLatestBadge: "Последняя",
     changelogOfflineNote: "Используется локальный кэш",
     changelogRefresh: "Обновить",
+    changelogCatNew: "НОВОЕ",
+    changelogCatFix: "ИСПРАВЛЕНО",
+    changelogCatImproved: "УЛУЧШЕНО",
     settingsTitle: "Настройки лаунчера",
     settingsSubtitle: "Папка игры, выделение оперативной памяти, язык интерфейса и кастомный фон",
     settingsGameDirTitle: "Папка игры",
@@ -337,8 +346,8 @@ export const TRANSLATIONS: Record<Language, TranslationDictionary> = {
     modsTabModrinth: "Pobierz z Modrinth",
     modsRefresh: "Odśwież",
     modsOpenFolder: "Otwórz folder modów",
-    modsOfficialBadge: "Official",
-    modsCustomBadge: "Custom",
+    modsOfficialBadge: "Oficjalny",
+    modsCustomBadge: "Własny",
     modsDisabledBadge: "Wyłączony",
     modsEmptyInstalled: "Brak zainstalowanych modów",
     modsEmptyInstalledHint: "Kliknij GRAJ, aby pobrać oficjalną paczkę lub zainstaluj mody z Modrinth.",
@@ -359,6 +368,9 @@ export const TRANSLATIONS: Record<Language, TranslationDictionary> = {
     changelogLatestBadge: "Najnowsza",
     changelogOfflineNote: "Używana pamięć podręczna offline",
     changelogRefresh: "Odśwież",
+    changelogCatNew: "NOWOŚĆ",
+    changelogCatFix: "POPRAWKA",
+    changelogCatImproved: "ULEPSZONO",
     settingsTitle: "Ustawienia launchera",
     settingsSubtitle: "Skonfiguruj folder gry, pamięć RAM, język interfejsu i własne tło",
     settingsGameDirTitle: "Folder gry",

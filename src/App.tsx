@@ -246,7 +246,7 @@ export function App() {
   const [systemInfo, setSystemInfo] = useState<SystemInfo>({
     totalRamMb: 16384,
     defaultGameDir: "",
-    launcherVersion: "1.3.2",
+    launcherVersion: "1.3.3",
   });
   const [settings, setSettings] = useState<LauncherSettings>(DEFAULT_SETTINGS);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -1032,7 +1032,7 @@ export function App() {
                     }`}
                   />
                   <span>
-                    {isMicrosoftMode ? "Microsoft" : "Offline"} • {displayNick}
+                    {isMicrosoftMode ? t.accountTypeMicrosoft : t.accountTypeOffline} • {displayNick}
                   </span>
                 </button>
 
@@ -1166,7 +1166,7 @@ export function App() {
                       ) : (
                         <div className="min-w-0">
                           <div className="text-xs font-semibold text-zinc-200">
-                            Microsoft Account
+                            {t.profileMicrosoftBadge}
                           </div>
                           <div className="text-[11px] text-zinc-500">{t.msNotSignedInHint}</div>
                         </div>
@@ -1556,12 +1556,18 @@ export function App() {
                     <ul className="space-y-2">
                       {entry.changes.map((ch, idx) => {
                         const style = CATEGORY_STYLES[ch.category] || CATEGORY_STYLES.IMPROVED;
+                        const catLabel =
+                          ch.category === "NEW"
+                            ? t.changelogCatNew
+                            : ch.category === "FIX"
+                              ? t.changelogCatFix
+                              : t.changelogCatImproved;
                         return (
                           <li key={idx} className="flex items-start gap-2.5 text-xs">
                             <span
                               className={`mt-0.5 shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-bold tracking-wider ${style.bg} ${style.text} ${style.border}`}
                             >
-                              {ch.category}
+                              {catLabel}
                             </span>
                             <span className="leading-relaxed text-zinc-300">
                               {ch.text[settings.language] || ch.text.en}
