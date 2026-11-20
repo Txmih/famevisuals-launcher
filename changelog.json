@@ -1,8 +1,60 @@
 [
   {
-    "version": "v2.6.0",
+    "version": "v2.6.1",
     "date": "2026-11-20",
     "isLatest": true,
+    "title": {
+      "en": "Kon! Fox Devil Finisher, AutoSell Market/AH Overhaul, Legit LootBeams, 3D Pet Skins & World Theme Upgrade",
+      "ru": "Добивание «Кон!» (Лисий Демон), новый парсер AutoSell (/market и /ah), LootBeams, скины питомцев и World Theme",
+      "pl": "Wykończenie Kon! (Lis Demon), nowy parser AutoSell, LootBeams, skórki zwierzaków i ulepszony World Theme"
+    },
+    "changes": [
+      {
+        "category": "NEW",
+        "text": {
+          "en": "Added Chainsaw Man Aki 'Kon!' (Fox Devil) 2nd kill finisher in Mace Helper with original voice audio and a colossal sculpted 3D Fox Devil chomping the eliminated player.",
+          "ru": "Добавлено второе добивание в Mace Helper — «Кон!» (Лисий Демон из Человека-бензопилы) с оригинальной озвучкой Аки и гигантской 3D-головой Лисьего Демона, поглощающей убитого игрока.",
+          "pl": "Dodano drugie wykończenie w Mace Helper — Kon! (Lis Demon z Chainsaw Man) z oryginalnym głosem Aki i wielką głową 3D Lisa Demona."
+        }
+      },
+      {
+        "category": "NEW",
+        "text": {
+          "en": "Overhauled AutoSell: Russian search dictionary even on English client, 2-step /market click-into-item per-unit pricing vs /ah stack pricing, percentage undercut (%), and free text price inputs up to billions.",
+          "ru": "Полная переработка AutoSell: поиск предметов всегда на русском (даже на английском языке клиента), двухшаговый парсер /market (заходит в предмет и продаёт поштучно) против /ah (за стак), скидка в процентах (%) и свободный ввод цен до миллиардов.",
+          "pl": "Przebudowano AutoSell: rosyjskie wyszukiwanie nawet na angielskim kliencie, dwuetapowy parser /market (cena za sztukę) vs /ah (za stak), zniżka procentowa (%) i wolne pola cenowe do miliardów."
+        }
+      },
+      {
+        "category": "NEW",
+        "text": {
+          "en": "Added 'Pets' cosmetics tab with seasonal 3D pet skins (New Year Santa Hat, Halloween Witch Hat, Easter Bunny Ears) + real 3D isometric cosmetic preview icons, sleek main-hand wristwatches (1st-person bare hand only), and 4 beautified shoulder companions.",
+          "ru": "В Косметике добавлен раздел «Питомцы» со скинами (Новогодний, Хэллоуинский, Пасхальный), настоящие 3D-иконки превью без рамок, тонкие детализированные часы (в 1-м лице только на пустой руке, в F5 — на основной руке) и 4 улучшенных спутника на плечо.",
+          "pl": "Dodano dział Zwierzaki w Kosmetykach (skórki Noworoczna, Halloween, Wielkanocna), ikony podglądu 3D, smukłe zegarki (1. osoba tylko na pustej ręce) oraz 4 dopracowanych towarzyszy."
+        }
+      },
+      {
+        "category": "IMPROVED",
+        "text": {
+          "en": "World Theme: added 'Custom Sky' toggle, 100% of all leaves now recolor, dirt blocks transform into seasonal turf, upgraded Sakura aesthetics & extra Winter/Sakura/Halloween sky auroras. Restored Classic ClickGUI and moved Assistant settings exclusively to Chat RMB.",
+          "ru": "World Theme: добавлена опция «Кастомное небо», перекрашиваются 100% всех листьев, земля превращается в сезонный дёрн, усилена красота Сакуры и добавлено больше сияний на небе. Возвращён классический ClickGUI, а Ассистент управляется строго через ПКМ в чате.",
+          "pl": "World Theme: dodano opcję Własne niebo, 100% liści zmienia kolor, ziemia zamienia się w darń sezonową i dodano więcej zórz na niebie. Przywrócono klasyczny ClickGUI."
+        }
+      },
+      {
+        "category": "FIX",
+        "text": {
+          "en": "Reworked ItemESP to strictly depth-tested legit visuals (LootBeams & Outline — zero wallhack/tracers), fixed Pets floating in mid-air, fixed Death Waypoint marker on instant-respawn servers, upgraded USA Trail flag (13 stripes + stars), and trimmed BuffEffect modes.",
+          "ru": "ItemESP переделан в легитные визуалы без просвета сквозь стены (Лучи лута LootBeams и Обводка), исправлено зависание питомцев в воздухе, починена метка «Место смерти» в Waypoints, улучшен флаг США в Trails и убраны лишние режимы (включая крылья) в BuffEffect.",
+          "pl": "Przerobiono ItemESP na legalne wizualizacje bez prześwitywania przez ściany (LootBeams i Obrys), naprawiono lewitujące zwierzaki, znacznik śmierci w Waypoints, flagę USA w Trails i oczyszczono BuffEffect."
+        }
+      }
+    ]
+  },
+  {
+    "version": "v2.6.0",
+    "date": "2026-11-20",
+    "isLatest": false,
     "title": {
       "en": "New ClickGUI, World Seasons, 3D Luxury Watches & Shoulder Pets, AutoSell Parser, ItemESP & Fast Launch",
       "ru": "Новый ClickGUI, Сезоны мира, 3D-часы и спутники, AutoSell-парсер, ItemESP и быстрый запуск",

@@ -1,5 +1,5 @@
 {
-  "version": "2.6.0",
+  "version": "2.6.1",
   "minecraftVersion": "1.21.11",
   "loader": "fabric",
   "loaderVersion": "0.19.3",
@@ -7,8 +7,8 @@
     {
       "name": "FameVisuals-1.21.11.jar",
       "url": "https://github.com/Txmih/famevisuals-launcher/releases/download/v1.3.0/FameVisuals-1.21.11.jar",
-      "sha256": "09ee49bc39ddde34a3c834af81c7ea3cce1c24ce21a93c8db48488a0bb4456c5",
-      "size": 31387246,
+      "sha256": "1246f101378b067c6fc11b4edd700af6a4b6d95624b715921cbb47f52870576d",
+      "size": 31573527,
       "required": true
     },
     {
