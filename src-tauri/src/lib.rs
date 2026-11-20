@@ -18,7 +18,7 @@ const GITHUB_RAW_BASE: &str =
 const DEFAULT_CHANGELOG_JSON: &str = include_str!("../../changelog.json");
 const DEFAULT_MANIFEST_JSON: &str = include_str!("../../manifest.json");
 const LAUNCHER_USER_AGENT: &str =
-    "FameLauncher/1.2.0 (https://github.com/Txmih/famevisuals-launcher)";
+    "FameLauncher/1.3.0 (https://github.com/Txmih/famevisuals-launcher)";
 const MS_CLIENT_ID: &str = "00000000402b5328";
 const MS_REDIRECT_URI: &str = "https://login.live.com/oauth20_desktop.srf";
 const MS_SCOPE: &str = "service::user.auth.xboxlive.com::MBI_SSL";
@@ -517,6 +517,7 @@ where
 
     let resp = client
         .get(url)
+        .header("Cache-Control", "no-cache, no-store")
         .send()
         .await
         .map_err(|e| format!("Download request failed ({}): {}", url, e))?;
@@ -590,10 +591,20 @@ async fn fetch_changelog(game_dir: String) -> Result<ChangelogResponse, String> 
         PathBuf::from(&game_dir)
     };
     let cache_path = dir.join("changelog_cache.json");
-    let url = format!("{}/changelog.json", GITHUB_RAW_BASE);
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let url = format!("{}/changelog.json?t={}", GITHUB_RAW_BASE, ts);
 
     if let Ok(client) = build_http_client(6) {
-        if let Ok(resp) = client.get(&url).send().await {
+        if let Ok(resp) = client
+            .get(&url)
+            .header("Cache-Control", "no-cache, no-store")
+            .header("Pragma", "no-cache")
+            .send()
+            .await
+        {
             if resp.status().is_success() {
                 if let Ok(text) = resp.text().await {
                     if let Ok(entries) = serde_json::from_str::<serde_json::Value>(&text) {
@@ -632,6 +643,33 @@ async fn fetch_changelog(game_dir: String) -> Result<ChangelogResponse, String> 
 // Official Modpack Sync + Java 21 + Minecraft 1.21.11 & Fabric Launch
 // =========================================================================
 
+#[tauri::command]
+async fn fetch_live_manifest_version() -> Result<String, String> {
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let manifest_url = format!("{}/manifest.json?t={}", GITHUB_RAW_BASE, ts);
+    if let Ok(client) = build_http_client(8) {
+        if let Ok(resp) = client
+            .get(&manifest_url)
+            .header("Cache-Control", "no-cache, no-store")
+            .header("Pragma", "no-cache")
+            .send()
+            .await
+        {
+            if resp.status().is_success() {
+                if let Ok(parsed) = resp.json::<ModManifest>().await {
+                    return Ok(parsed.version);
+                }
+            }
+        }
+    }
+    let bundled: ModManifest =
+        serde_json::from_str(DEFAULT_MANIFEST_JSON).map_err(|e| e.to_string())?;
+    Ok(bundled.version)
+}
+
 async fn sync_official_modpack(
     app: &AppHandle,
     client: &reqwest::Client,
@@ -639,8 +677,18 @@ async fn sync_official_modpack(
 ) -> Result<ModManifest, String> {
     emit_progress(app, "checking_updates", "Checking manifest...", 6.0, 0, 0);
 
-    let manifest_url = format!("{}/manifest.json", GITHUB_RAW_BASE);
-    let manifest: ModManifest = match client.get(&manifest_url).send().await {
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let manifest_url = format!("{}/manifest.json?t={}", GITHUB_RAW_BASE, ts);
+    let manifest: ModManifest = match client
+        .get(&manifest_url)
+        .header("Cache-Control", "no-cache, no-store")
+        .header("Pragma", "no-cache")
+        .send()
+        .await
+    {
         Ok(resp) if resp.status().is_success() => match resp.json::<ModManifest>().await {
             Ok(parsed) => parsed,
             Err(_) => serde_json::from_str(DEFAULT_MANIFEST_JSON).map_err(|e| e.to_string())?,
@@ -728,7 +776,9 @@ async fn sync_official_modpack(
 
         let acc_clone = downloaded_acc.clone();
         let app_clone = app.clone();
-        download_to_file_with_callback(client, &file.url, &target_path, |chunk, _| {
+        let sep = if file.url.contains('?') { '&' } else { '?' };
+        let busted_url = format!("{}{}v={}&t={}", file.url, sep, manifest.version, ts);
+        download_to_file_with_callback(client, &busted_url, &target_path, |chunk, _| {
             let done = acc_clone.fetch_add(chunk, Ordering::Relaxed) + chunk;
             let ratio = if total_bytes > 0 {
                 (done as f64 / total_bytes as f64).min(1.0)
@@ -1030,6 +1080,7 @@ async fn run_download_pool(
     natives_dir: &Path,
     base_percent: f64,
     span_percent: f64,
+    skip_native_extract_if_present: bool,
 ) -> Result<(), String> {
     let total_bytes: u64 = tasks
         .iter()
@@ -1045,24 +1096,27 @@ async fn run_download_pool(
             let acc = downloaded_acc.clone();
             let natives = natives.clone();
             async move {
-                let already_valid = if task.dest.is_file() {
-                    if let Some(expected_sha1) = &task.sha1 {
-                        let p = task.dest.clone();
-                        let exp = expected_sha1.clone();
-                        tokio::task::spawn_blocking(move || {
-                            compute_sha1_hex(&p)
-                                .map(|h| h.eq_ignore_ascii_case(&exp))
-                                .unwrap_or(false)
-                        })
-                        .await
-                        .unwrap_or(false)
-                    } else if task.size > 0 {
-                        tokio::fs::metadata(&task.dest)
+                // Fast-path: if file exists and matches exact Mojang byte size, trust it without
+                // hashing 3,500+ asset files on every launch (cuts startup from ~45s to <1s).
+                let already_valid = if let Ok(meta) = tokio::fs::metadata(&task.dest).await {
+                    if meta.is_file() {
+                        if task.size > 0 {
+                            meta.len() == task.size
+                        } else if let Some(expected_sha1) = &task.sha1 {
+                            let p = task.dest.clone();
+                            let exp = expected_sha1.clone();
+                            tokio::task::spawn_blocking(move || {
+                                compute_sha1_hex(&p)
+                                    .map(|h| h.eq_ignore_ascii_case(&exp))
+                                    .unwrap_or(false)
+                            })
                             .await
-                            .map(|m| m.len() == task.size)
                             .unwrap_or(false)
+                        } else {
+                            meta.len() > 0
+                        }
                     } else {
-                        true
+                        false
                     }
                 } else {
                     false
@@ -1093,7 +1147,7 @@ async fn run_download_pool(
                     .await?;
                 }
 
-                if task.is_native {
+                if task.is_native && (!already_valid || !skip_native_extract_if_present) {
                     let p = task.dest.clone();
                     let nd = natives.clone();
                     tokio::task::spawn_blocking(move || {
@@ -1106,7 +1160,7 @@ async fn run_download_pool(
                 Ok(())
             }
         })
-        .buffer_unordered(12)
+        .buffer_unordered(24)
         .collect()
         .await;
 
@@ -1686,23 +1740,25 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
     tokio::fs::create_dir_all(&libraries_dir)
         .await
         .map_err(|e| e.to_string())?;
-    if natives_dir.exists() {
-        if let Ok(mut entries) = tokio::fs::read_dir(&natives_dir).await {
-            while let Ok(Some(entry)) = entries.next_entry().await {
-                let p = entry.path();
-                if p.extension()
-                    .and_then(|e| e.to_str())
-                    .map(|e| e.eq_ignore_ascii_case("dll"))
-                    .unwrap_or(false)
-                {
-                    let _ = tokio::fs::remove_file(p).await;
-                }
-            }
-        }
-    }
     tokio::fs::create_dir_all(&natives_dir)
         .await
         .map_err(|e| e.to_string())?;
+    let mut natives_ready = false;
+    if let Ok(mut entries) = tokio::fs::read_dir(&natives_dir).await {
+        let mut dll_count = 0usize;
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            if entry
+                .path()
+                .extension()
+                .and_then(|e| e.to_str())
+                .map(|e| e.eq_ignore_ascii_case("dll"))
+                .unwrap_or(false)
+            {
+                dll_count += 1;
+            }
+        }
+        natives_ready = dll_count >= 3;
+    }
 
     let mut download_tasks = Vec::new();
     let mut classpath_map: HashMap<(String, String, String), PathBuf> = HashMap::new();
@@ -1834,7 +1890,7 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
         }
     }
 
-    run_download_pool(&app, &client, download_tasks, &natives_dir, 45.0, 25.0).await?;
+    run_download_pool(&app, &client, download_tasks, &natives_dir, 45.0, 25.0, natives_ready).await?;
 
     // Download Asset Index & Assets
     let assets_dir = game_dir.join("assets");
@@ -1899,7 +1955,7 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
                 is_native: false,
             });
         }
-        run_download_pool(&app, &client, asset_tasks, &natives_dir, 70.0, 22.0).await?;
+        run_download_pool(&app, &client, asset_tasks, &natives_dir, 70.0, 22.0, true).await?;
     }
 
     // 4. Spawn Minecraft 1.21.11 + Fabric Process
@@ -1997,7 +2053,7 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
         .spawn()
         .map_err(|e| format!("Failed to start Minecraft process: {}", e))?;
 
-    tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     if let Ok(Some(status)) = child.try_wait() {
         if !status.success() {
             return Err(format!("Minecraft exited immediately with status {}", status));
@@ -2025,6 +2081,7 @@ pub fn run() {
             delete_mod,
             install_modrinth_mod,
             fetch_changelog,
+            fetch_live_manifest_version,
             login_microsoft,
             launch_game
         ])

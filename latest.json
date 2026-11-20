@@ -1,11 +1,11 @@
 {
-  "version": "1.2.0",
-  "notes": "FameLauncher v1.2.0 — Multiplayer fix (offlineDeveloperMode, ViaFabricPlus 4.4.15, isMultiplayerEnabled mixin) and self-extracting WebView2Loader.dll bootstrapper.",
-  "pub_date": "2026-11-14T20:10:28Z",
+  "version": "1.3.0",
+  "notes": "FameLauncher v1.3.0 \u2014 20x+ faster Minecraft launch, lag-free obsidian UI, cache-busted mod updates & modern dark graphical installer (+ FameVisuals v2.6.0).",
+  "pub_date": "2026-11-20T00:00:27Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUSnNLUm5PUFd3RUNtZ3FjV3A5Sjk4cGFzOGJML21CV3RyYUZHbjNzL083VlJpOEg2QmpTMjd1eXFxa3ZxMVlBRWx5RmZFU2xhMndNZU5SbVQ0Y3ZZNjNYand2S2FzNGdBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0Njg3MDI4CWZpbGU6RmFtZUxhdW5jaGVyXzEuMi4wX3g2NC1zZXR1cC5leGUJdmVyc2lvbjoxLjIuMApyNnpZTVppTkhjYzJ6RGZzQ3Z6VXBEbmovNGdmU1JPd0pXQTkzVmFzNGlJVzBrOGQ3ZStUNndGOGh2cDlPNWRha2k5VCt0T1NzZXhSSjZpT2JLWFdBZz09Cg==",
-      "url": "https://github.com/Txmih/famevisuals-launcher/releases/download/v1.2.0/FameLauncher_1.2.0_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUSnNLUm5PUFd3RUM5SEJFTVh5a0g4RUsrY0IwbEMvYTdvbGQyZ0IrM085UWVZV2dpMDd0THgycVVCWkVzais1aGprWHdxeTVROGxIdUFLYXlZQ2QxWnRFTEJYNU5waFE4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MTMyODA3CWZpbGU6RmFtZUxhdW5jaGVyXzEuMy4wX3g2NC1zZXR1cC5leGUJdmVyc2lvbjoxLjMuMAplT2pBTlIweW1FcU1QK3I4TEdsWk42NDRQK3Q5ZCtIR3Vtck1iMzJZb0VoM2o1czc0K01MamJzdDZSTk40ZjBKUEpPbXdmSlVJR0hHMkcvRXgyR09Edz09Cg==",
+      "url": "https://github.com/Txmih/famevisuals-launcher/releases/download/v1.3.0/FameLauncher_1.3.0_x64-setup.exe"
     }
   }
 }

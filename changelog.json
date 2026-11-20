@@ -1,8 +1,96 @@
 [
   {
+    "version": "v2.6.0",
+    "date": "2026-11-20",
+    "isLatest": true,
+    "title": {
+      "en": "New ClickGUI, World Seasons, 3D Luxury Watches & Shoulder Pets, AutoSell Parser, ItemESP & Fast Launch",
+      "ru": "Новый ClickGUI, Сезоны мира, 3D-часы и спутники, AutoSell-парсер, ItemESP и быстрый запуск",
+      "pl": "Nowy ClickGUI, Pory roku świata, Zegarki 3D i towarzysze, AutoSell Parser, ItemESP i szybki start"
+    },
+    "changes": [
+      {
+        "category": "NEW",
+        "text": {
+          "en": "Brand-new draggable Obsidian ClickGUI (with 1-click toggle between New & Classic menu + built-in Chat Commands Hub & Cosmetics drawer) and World Theme module (Winter, Sakura, Halloween — transforms leaves, grass, water, sky, fog & 3D particles).",
+          "ru": "Новый перетаскиваемый Obsidian ClickGUI (с переключением Новый / Старый в 1 клик + встроенный хаб всех чат-команд) и модуль World Theme (Зима / Сакура / Хэллоуин — меняет листья, траву, воду, небо, туман и 3D-частицы).",
+          "pl": "Nowy Obsidian ClickGUI (przełącznik Nowy / Stary + wbudowany panel komend czatu) oraz moduł World Theme (Zima / Sakura / Halloween — zmienia liście, trawę, wodę, niebo, mgłę i cząsteczki 3D)."
+        }
+      },
+      {
+        "category": "NEW",
+        "text": {
+          "en": "Cosmetics expanded with 10 detailed 3D wristwatches (Casio G-Shock, Casio Vintage Gold, Rolex Submariner/Hulk/Datejust, AP Royal Oak, Richard Mille, Omega, Patek, Cyber Holo — visible in 1st & 3rd person with real-time ticking hands), 8 animated 3D shoulder companions & 4 sculpted hats.",
+          "ru": "Косметика расширена: 10 детализированных 3D-часов (Casio G-Shock, Vintage Gold, Rolex Submariner/Hulk/Datejust, AP Royal Oak, Richard Mille, Omega, Patek, Cyber — видны от 1-го и 3-го лица с живыми стрелками!), 8 анимированных спутников на плечо и 4 новых 3D-шлема.",
+          "pl": "Rozszerzone Kosmetyki: 10 zegarków 3D (Casio, Rolex, AP, Richard Mille, Omega, Patek, Cyber — widoczne w 1. i 3. osobie), 8 towarzyszy na ramię i 4 nowe hełmy 3D."
+        }
+      },
+      {
+        "category": "NEW",
+        "text": {
+          "en": "Added ItemESP (glowing tracer lines & 3D boxes per item), AutoSell GUI module with /ah & /market minimum price parser (-10 coins undercut, single item or full inventory), Ambience Realistic Rain with ground splashes, 3 new 3D BuffEffect modes (Crystals, Arcane Sigil, Celestial Wings) and Trails modes (Custom, Nyan Cat, Germany, USA, Japan).",
+          "ru": "Добавлены ItemESP (светящиеся линии и 3D-обводка к каждому предмету), GUI-модуль AutoSell с парсером минимальной цены (-10 монет, предмет или весь инвентарь), Реалистичный дождь в Ambience с брызгами, 3 новых 3D-эффекта BuffEffect (Кристаллы, Рунный круг, Энерго-Крылья) и режимы Trails (Custom, Nyan Cat, Germany, USA, Japan).",
+          "pl": "Dodano ItemESP (świecące linie do przedmiotów), moduł AutoSell z parserem min. ceny (-10 monet), Realistyczny deszcz w Ambience, 3 tryby 3D BuffEffect oraz tryby Trails (Custom, Nyan Cat, Germany, USA, Japan)."
+        }
+      },
+      {
+        "category": "FIX",
+        "text": {
+          "en": "Rebuilt Sakura Kill Effect with real painted cherry blossom petals & organic 3D sakura tree (removed orbs & screen glare), fixed Kill Effects never triggering on own death, and sped up Minecraft launch in FameLauncher v1.3.0 by 20x+.",
+          "ru": "Переделан Kill Effect «Сакура» на настоящие текстурные лепестки и 3D-дерево сакуры (убраны орбы и засветы экрана), исправлено срабатывание килл-эффекта при своей смерти и ускорен запуск Minecraft в FameLauncher v1.3.0 в 20+ раз.",
+          "pl": "Przebudowano Kill Effect Sakura na prawdziwe płatki i drzewo 3D (usunięto kule i rozbłyski), naprawiono wyzwalanie efektu przy własnej śmierci i przyspieszono uruchamianie Minecrafta w FameLauncher v1.3.0."
+        }
+      }
+    ]
+  },
+  {
+    "version": "v2.5.7",
+    "date": "2026-11-20",
+    "isLatest": false,
+    "title": {
+      "en": "Weather-Changing Valorant Finishers, Nyan Cat Trails, Shulker Preview Fix & FameLauncher 1.3",
+      "ru": "Погодные Valorant-финишеры, Nyan Cat Trails, фикс Shulker Preview и FameLauncher 1.3",
+      "pl": "Efekty pogodowe Valorant, Nyan Cat Trails, poprawka Shulker Preview i FameLauncher 1.3"
+    },
+    "changes": [
+      {
+        "category": "NEW",
+        "text": {
+          "en": "Weather-changing slow-motion Valorant Kill Effects with authentic audio: Sakura (twilight cherry-blossom sky + blooming 3D sakura tree + slow-drifting petals), Kuronami (midnight storm + floating water sphere + lightning + rain) and Reaver (shadow-realm eclipse + abyssal claws + soul pull).",
+          "ru": "Погодные замедленные Valorant-финишеры в Kill Effects с оригинальными звуками: Сакура (сумеречное розовое небо, расцветающее 3D-дерево сакуры и медленно падающие лепестки), Kuronami (ночная гроза, сфера воды, молнии и дождь) и Reaver (тёмное затмение, когти бездны и затягивание души).",
+          "pl": "Efekty zabójstw Valorant ze zmianą pogody i oryginalnymi dźwiękami: Sakura (różowe niebo, kwitnące drzewo 3D i płatki), Kuronami (burza, kula wody, pioruny i deszcz) oraz Reaver (mroczne zaćmienie i portal)."
+        }
+      },
+      {
+        "category": "NEW",
+        "text": {
+          "en": "Added Nyan Cat mode to Trails (6-band 8-bit wave rainbow ribbon with twinkling pixel stars), accurate KillFeed HUD, and Secret Trader callouts for Megumin Assistant.",
+          "ru": "Добавлен режим Nyan Cat в Trails (6-полосная радужная лента с 8-битной волной и звёздочками), чистый KillFeed с точным определением Заряда ветра и фразы Мегумин про Тайного торговца.",
+          "pl": "Dodano tryb Nyan Cat w Trails, czysty KillFeed z obsługą Wind Charge oraz kwestie Megumin dla Tajemniczego Handlarza."
+        }
+      },
+      {
+        "category": "FIX",
+        "text": {
+          "en": "Fixed Shulker Preview tooltip grid in inventories/chests/AH, instant /fix all after ReallyWorld CT, ChatHelper coordinate placeholders, Waypoints event coord button, and Cosmetics rendering.",
+          "ru": "Исправлен Shulker Preview (сетка 3×9 при наведении в инвентаре и сундуках), мгновенный /fix all после КТ, подстановка (координаты) в Chat Helper, кнопка «Добавить корды» на активных ивентах и работа Косметики.",
+          "pl": "Naprawiono Shulker Preview (siatka 3x9 w ekwipunku), natychmiastowe /fix all po CT, współrzędne w Chat Helper, przycisk koordynatów eventów oraz Kosmetyki."
+        }
+      },
+      {
+        "category": "IMPROVED",
+        "text": {
+          "en": "Completely redesigned FameLauncher v1.3.0: ultra-smooth lag-free obsidian UI, instant cache-busted modpack sync, and custom dark graphical installer.",
+          "ru": "Новый дизайн FameLauncher v1.3.0: сверхплавный тёмный интерфейс без лагов, гарантированное мгновенное обновление мода и собственный современный тёмный установщик.",
+          "pl": "Nowy wygląd FameLauncher v1.3.0: płynny ciemny interfejs bez lagów, pewna synchronizacja moda i nowoczesny ciemny instalator."
+        }
+      }
+    ]
+  },
+  {
     "version": "v2.2.0",
     "date": "2026-11-15",
-    "isLatest": true,
+    "isLatest": false,
     "title": {
       "en": "InstantKill, 3D Crystal Tint, Main Menu Redesign & Client Optimization",
       "ru": "InstantKill, 3D-перекраска кристаллов, новый дизайн меню и оптимизация",

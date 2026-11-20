@@ -21,18 +21,18 @@ fn main() {
     let rc_content = format!(
         r#"1 ICON "{icon}"
 1 VERSIONINFO
-FILEVERSION 1,2,0,0
-PRODUCTVERSION 1,2,0,0
+FILEVERSION 1,3,0,0
+PRODUCTVERSION 1,3,0,0
 BEGIN
     BLOCK "StringFileInfo"
     BEGIN
         BLOCK "040904B0"
         BEGIN
             VALUE "CompanyName", "FameVisuals"
-            VALUE "FileDescription", "FameLauncher"
-            VALUE "FileVersion", "1.2.0"
-            VALUE "ProductName", "FameLauncher"
-            VALUE "ProductVersion", "1.2.0"
+            VALUE "FileDescription", "FameLauncher Installer"
+            VALUE "FileVersion", "1.3.0"
+            VALUE "ProductName", "FameLauncher Installer"
+            VALUE "ProductVersion", "1.3.0"
         END
     END
     BLOCK "VarFileInfo"
