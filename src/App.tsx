@@ -11,6 +11,7 @@ import {
   ArrowDownToLine,
   Check,
   CheckCircle2,
+  ChevronDown,
   Cpu,
   Download,
   FolderOpen,
@@ -169,6 +170,62 @@ function MicrosoftLogoIcon({ className = "h-3.5 w-3.5" }: { className?: string }
   );
 }
 
+const LANGUAGE_OPTIONS: { code: Language; label: string }[] = [
+  { code: "ru", label: "Русский" },
+  { code: "en", label: "English" },
+  { code: "pl", label: "Polski" },
+];
+
+function LanguageFlag({
+  code,
+  className = "h-3.5 w-5 shrink-0 rounded-[3px] ring-1 ring-white/15",
+}: {
+  code: Language;
+  className?: string;
+}) {
+  if (code === "ru") {
+    return (
+      <svg viewBox="0 0 24 16" className={className} aria-hidden="true">
+        <rect width="24" height="5.34" y="0" fill="#FFFFFF" />
+        <rect width="24" height="5.34" y="5.33" fill="#0039A6" />
+        <rect width="24" height="5.34" y="10.67" fill="#D52B1E" />
+      </svg>
+    );
+  }
+  if (code === "pl") {
+    return (
+      <svg viewBox="0 0 24 16" className={className} aria-hidden="true">
+        <rect width="24" height="8" y="0" fill="#FFFFFF" />
+        <rect width="24" height="8" y="8" fill="#DC143C" />
+      </svg>
+    );
+  }
+  // English — crisp US flag SVG
+  return (
+    <svg viewBox="0 0 24 16" className={className} aria-hidden="true">
+      <rect width="24" height="16" fill="#FFFFFF" />
+      <rect width="24" height="1.23" y="0" fill="#B22234" />
+      <rect width="24" height="1.23" y="2.46" fill="#B22234" />
+      <rect width="24" height="1.23" y="4.92" fill="#B22234" />
+      <rect width="24" height="1.23" y="7.38" fill="#B22234" />
+      <rect width="24" height="1.23" y="9.84" fill="#B22234" />
+      <rect width="24" height="1.23" y="12.30" fill="#B22234" />
+      <rect width="24" height="1.24" y="14.76" fill="#B22234" />
+      <rect width="10.5" height="8.62" x="0" y="0" fill="#3C3B6E" />
+      <g fill="#FFFFFF">
+        <circle cx="2" cy="1.8" r="0.65" />
+        <circle cx="5.2" cy="1.8" r="0.65" />
+        <circle cx="8.4" cy="1.8" r="0.65" />
+        <circle cx="3.6" cy="4.3" r="0.65" />
+        <circle cx="6.8" cy="4.3" r="0.65" />
+        <circle cx="2" cy="6.8" r="0.65" />
+        <circle cx="5.2" cy="6.8" r="0.65" />
+        <circle cx="8.4" cy="6.8" r="0.65" />
+      </g>
+    </svg>
+  );
+}
+
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   const kb = bytes / 1024;
@@ -189,14 +246,14 @@ export function App() {
   const [systemInfo, setSystemInfo] = useState<SystemInfo>({
     totalRamMb: 16384,
     defaultGameDir: "",
-    launcherVersion: "1.3.0",
+    launcherVersion: "1.3.1",
   });
-  const [liveModVersion, setLiveModVersion] = useState<string>("2.5.7");
   const [settings, setSettings] = useState<LauncherSettings>(DEFAULT_SETTINGS);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   const [avatarError, setAvatarError] = useState(false);
   const [msLoggingIn, setMsLoggingIn] = useState(false);
+  const [langMenuOpen, setLangMenuOpen] = useState(false);
 
   const [installedMods, setInstalledMods] = useState<InstalledMod[]>([]);
   const [modsLoading, setModsLoading] = useState(false);
@@ -226,6 +283,25 @@ export function App() {
   const saveTimeoutRef = useRef<number | null>(null);
   const searchTimeoutRef = useRef<number | null>(null);
   const nickInputRef = useRef<HTMLInputElement | null>(null);
+  const langMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!langMenuOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (langMenuRef.current && !langMenuRef.current.contains(e.target as Node)) {
+        setLangMenuOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLangMenuOpen(false);
+    };
+    window.addEventListener("mousedown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("mousedown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [langMenuOpen]);
 
   const t = TRANSLATIONS[settings.language];
 
@@ -301,13 +377,7 @@ export function App() {
     async (manual = false) => {
       setCheckingUpdater(true);
       try {
-        const [update, liveVer] = await Promise.all([
-          check().catch(() => null),
-          invoke<string>("fetch_live_manifest_version").catch(() => null),
-        ]);
-        if (liveVer) {
-          setLiveModVersion(liveVer);
-        }
+        const update = await check().catch(() => null);
         if (update) {
           setPendingUpdate(update);
         } else if (manual) {
@@ -332,17 +402,13 @@ export function App() {
 
     const init = async () => {
       try {
-        const [sys, loaded, liveVer] = await Promise.all([
+        const [sys, loaded] = await Promise.all([
           invoke<SystemInfo>("get_system_info"),
           invoke<LauncherSettings>("load_settings"),
-          invoke<string>("fetch_live_manifest_version").catch(() => null),
         ]);
         if (!mounted) return;
 
         setSystemInfo(sys);
-        if (liveVer) {
-          setLiveModVersion(liveVer);
-        }
         const merged: LauncherSettings = {
           ...DEFAULT_SETTINGS,
           ...loaded,
@@ -718,10 +784,12 @@ export function App() {
         : "Ready to Launch";
   const readySub =
     settings.language === "ru"
-      ? "Клиент Fabric для Minecraft 1.21.11"
+      ? "Клиент Fabric • FameVisuals"
       : settings.language === "pl"
-        ? "Klient Fabric dla Minecraft 1.21.11"
-        : "Fabric Client for Minecraft 1.21.11";
+        ? "Klient Fabric • FameVisuals"
+        : "Fabric Client • FameVisuals";
+  const currentLangOption =
+    LANGUAGE_OPTIONS.find((l) => l.code === settings.language) || LANGUAGE_OPTIONS[0];
   const launchWord =
     settings.language === "ru"
       ? "Запустить"
@@ -818,30 +886,55 @@ export function App() {
               FameLauncher
             </span>
 
-            {/* Compact Language Switcher directly in header */}
+            {/* Compact Language Dropdown with Flag Icons */}
             <div
-              className="flex items-center gap-0.5 rounded-lg border border-white/[0.07] bg-[#12141c] p-0.5"
+              ref={langMenuRef}
+              className="relative"
               onMouseDown={(e) => e.stopPropagation()}
             >
-              {(["ru", "en", "pl"] as Language[]).map((lang) => (
-                <button
-                  key={lang}
-                  type="button"
-                  onClick={() => updateSettings({ language: lang })}
-                  className={`rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase transition-colors ${
-                    settings.language === lang
-                      ? "bg-white/[0.13] text-white"
-                      : "text-zinc-500 hover:text-zinc-300"
+              <button
+                type="button"
+                onClick={() => setLangMenuOpen((prev) => !prev)}
+                className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-[#12141c] px-2.5 py-1 text-[11px] font-medium text-zinc-200 transition-colors hover:border-white/[0.16] hover:text-white"
+              >
+                <LanguageFlag code={currentLangOption.code} />
+                <span>{currentLangOption.label}</span>
+                <ChevronDown
+                  className={`h-3 w-3 text-zinc-400 transition-transform duration-150 ${
+                    langMenuOpen ? "rotate-180" : ""
                   }`}
-                >
-                  {lang}
-                </button>
-              ))}
-            </div>
+                />
+              </button>
 
-            <span className="hidden rounded-md border border-white/[0.07] bg-[#12141c] px-2 py-0.5 font-mono text-[10px] text-zinc-400 sm:inline-block">
-              v{systemInfo.launcherVersion}
-            </span>
+              {langMenuOpen && (
+                <div className="absolute left-0 top-full z-50 mt-1.5 w-[150px] overflow-hidden rounded-xl border border-white/[0.1] bg-[#11131a]/95 p-1 shadow-2xl backdrop-blur-md">
+                  {LANGUAGE_OPTIONS.map((lang) => {
+                    const active = settings.language === lang.code;
+                    return (
+                      <button
+                        key={lang.code}
+                        type="button"
+                        onClick={() => {
+                          updateSettings({ language: lang.code });
+                          setLangMenuOpen(false);
+                        }}
+                        className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11px] font-medium transition-colors ${
+                          active
+                            ? "bg-white/[0.12] text-white"
+                            : "text-zinc-300 hover:bg-white/[0.06] hover:text-white"
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <LanguageFlag code={lang.code} />
+                          <span>{lang.label}</span>
+                        </span>
+                        {active && <Check className="h-3 w-3 shrink-0 text-white" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Center-Right Social & Wallpaper + Window Controls */}
@@ -943,11 +1036,6 @@ export function App() {
                   </span>
                 </button>
 
-                {/* Top-Right Live Client Version Pill */}
-                <div className="absolute right-4 top-4 z-10 rounded-full border border-white/[0.1] bg-[#0e1017]/90 px-3 py-1 font-mono text-[11px] font-medium text-zinc-300">
-                  1.21.11 • v{liveModVersion}
-                </div>
-
                 {/* Center Launch Block */}
                 <div className="relative z-10 flex max-w-md flex-col items-center text-center">
                   <div className="mb-4 flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-white/[0.14] bg-[#12141c] shadow-lg">
@@ -980,7 +1068,7 @@ export function App() {
                         {launching ? t.launchingButton : launchWord}
                       </span>
                       <span className="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-zinc-400">
-                        1.21.11 • FAMEVISUALS
+                        FAMEVISUALS
                       </span>
                     </div>
                   </button>
@@ -1139,11 +1227,11 @@ export function App() {
                 </div>
 
                 {/* Quick System / Client Status Card */}
-                <div className="fame-surface grid grid-cols-3 divide-x divide-white/[0.06] rounded-2xl p-3 lg:col-span-5">
+                <div className="fame-surface grid grid-cols-2 divide-x divide-white/[0.06] rounded-2xl p-3 lg:col-span-5">
                   <button
                     type="button"
                     onClick={() => setActiveTab("mods")}
-                    className="flex flex-col justify-center rounded-lg px-3 py-1 text-left transition-colors hover:bg-white/[0.04]"
+                    className="flex flex-col justify-center rounded-lg px-4 py-1 text-left transition-colors hover:bg-white/[0.04]"
                   >
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
                       {t.statMods}
@@ -1154,26 +1242,13 @@ export function App() {
                   <button
                     type="button"
                     onClick={() => setActiveTab("settings")}
-                    className="flex flex-col justify-center px-3 py-1 text-left transition-colors hover:bg-white/[0.04]"
+                    className="flex flex-col justify-center px-4 py-1 text-left transition-colors hover:bg-white/[0.04]"
                   >
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
                       {t.statRam}
                     </span>
                     <span className="mt-1 text-base font-bold text-white">
                       {(settings.ramMb / 1024).toFixed(1)} GB
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("changelog")}
-                    className="flex flex-col justify-center rounded-lg px-3 py-1 text-left transition-colors hover:bg-white/[0.04]"
-                  >
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                      Client
-                    </span>
-                    <span className="mt-1 font-mono text-sm font-bold text-emerald-300">
-                      v{liveModVersion}
                     </span>
                   </button>
                 </div>
@@ -1594,26 +1669,21 @@ export function App() {
                     <h3 className="text-sm font-semibold text-white">{t.settingsLanguageTitle}</h3>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
-                    {(
-                      [
-                        { code: "ru", label: "Русский" },
-                        { code: "en", label: "English" },
-                        { code: "pl", label: "Polski" },
-                      ] as { code: Language; label: string }[]
-                    ).map((lang) => {
+                    {LANGUAGE_OPTIONS.map((lang) => {
                       const active = settings.language === lang.code;
                       return (
                         <button
                           key={lang.code}
                           type="button"
                           onClick={() => updateSettings({ language: lang.code })}
-                          className={`rounded-xl border px-3 py-2 text-xs font-semibold transition-colors ${
+                          className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors ${
                             active
                               ? "border-white/30 bg-white/[0.12] text-white"
                               : "border-white/[0.07] bg-[#0a0b0f] text-zinc-400 hover:text-white"
                           }`}
                         >
-                          {lang.label}
+                          <LanguageFlag code={lang.code} />
+                          <span>{lang.label}</span>
                         </button>
                       );
                     })}

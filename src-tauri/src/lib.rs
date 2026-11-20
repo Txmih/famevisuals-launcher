@@ -18,7 +18,7 @@ const GITHUB_RAW_BASE: &str =
 const DEFAULT_CHANGELOG_JSON: &str = include_str!("../../changelog.json");
 const DEFAULT_MANIFEST_JSON: &str = include_str!("../../manifest.json");
 const LAUNCHER_USER_AGENT: &str =
-    "FameLauncher/1.3.0 (https://github.com/Txmih/famevisuals-launcher)";
+    "FameLauncher/1.3.1 (https://github.com/Txmih/famevisuals-launcher)";
 const MS_CLIENT_ID: &str = "00000000402b5328";
 const MS_REDIRECT_URI: &str = "https://login.live.com/oauth20_desktop.srf";
 const MS_SCOPE: &str = "service::user.auth.xboxlive.com::MBI_SSL";
@@ -1204,10 +1204,13 @@ async fn authenticate_xbox_and_minecraft(
     msa_access_token: &str,
     msa_refresh_token: String,
 ) -> Result<MicrosoftAccountProfile, String> {
-    // 1. Xbox Live User Authenticate (try raw RpsTicket, fallback to d= prefix)
+    // 1. Xbox Live User Authenticate (try raw RpsTicket first for MBI_SSL, fallback to d= prefix)
     let mut xbl_resp_json: Option<serde_json::Value> = None;
     let mut last_xbl_err = String::new();
-    for rps_ticket in [msa_access_token.to_string(), format!("d={}", msa_access_token)] {
+    for rps_ticket in [
+        msa_access_token.to_string(),
+        format!("d={}", msa_access_token),
+    ] {
         let body = serde_json::json!({
             "Properties": {
                 "AuthMethod": "RPS",
@@ -1220,6 +1223,8 @@ async fn authenticate_xbox_and_minecraft(
         let resp = client
             .post("https://user.auth.xboxlive.com/user/authenticate")
             .header("Accept", "application/json")
+            .header("Content-Type", "application/json")
+            .header("x-xbl-contract-version", "1")
             .json(&body)
             .send()
             .await
@@ -1249,13 +1254,13 @@ async fn authenticate_xbox_and_minecraft(
         .ok_or("Missing Xbox Live token")?
         .to_string();
 
-    let uhs = xbl_json
+    let xbl_uhs = xbl_json
         .pointer("/DisplayClaims/xui/0/uhs")
         .and_then(|v| v.as_str())
         .ok_or("Missing Xbox Live user hash (uhs)")?
         .to_string();
 
-    // 2. XSTS Authorize
+    // 2. XSTS Authorize (FIXED domain: xsts.auth.xboxlive.com!)
     let xsts_body = serde_json::json!({
         "Properties": {
             "SandboxId": "RETAIL",
@@ -1265,8 +1270,10 @@ async fn authenticate_xbox_and_minecraft(
         "TokenType": "JWT"
     });
     let xsts_resp = client
-        .post("https://xsts.auth.xboxservices.com/xsts/authorize")
+        .post("https://xsts.auth.xboxlive.com/xsts/authorize")
         .header("Accept", "application/json")
+        .header("Content-Type", "application/json")
+        .header("x-xbl-contract-version", "1")
         .json(&xsts_body)
         .send()
         .await
@@ -1275,7 +1282,11 @@ async fn authenticate_xbox_and_minecraft(
     if !xsts_resp.status().is_success() {
         let status = xsts_resp.status();
         let err_json = xsts_resp.json::<serde_json::Value>().await.ok();
-        if let Some(xerr) = err_json.as_ref().and_then(|v| v.get("XErr")).and_then(|v| v.as_u64()) {
+        if let Some(xerr) = err_json
+            .as_ref()
+            .and_then(|v| v.get("XErr"))
+            .and_then(|v| v.as_u64())
+        {
             let reason = match xerr {
                 2148916233 => "У этого Microsoft-аккаунта нет профиля Xbox. Создайте профиль Xbox Live и повторите вход.",
                 2148916235 => "Xbox Live недоступен в регионе этого аккаунта.",
@@ -1294,6 +1305,11 @@ async fn authenticate_xbox_and_minecraft(
         .and_then(|v| v.as_str())
         .ok_or("Missing XSTS token")?
         .to_string();
+    let uhs = xsts_json
+        .pointer("/DisplayClaims/xui/0/uhs")
+        .and_then(|v| v.as_str())
+        .map(String::from)
+        .unwrap_or(xbl_uhs);
 
     // 3. Authenticate with Minecraft Services
     let mc_login_body = serde_json::json!({
@@ -1302,6 +1318,7 @@ async fn authenticate_xbox_and_minecraft(
     let mc_login_resp = client
         .post("https://api.minecraftservices.com/authentication/login_with_xbox")
         .header("Accept", "application/json")
+        .header("Content-Type", "application/json")
         .json(&mc_login_body)
         .send()
         .await
@@ -1337,7 +1354,10 @@ async fn authenticate_xbox_and_minecraft(
     if !profile_resp.status().is_success() {
         let status = profile_resp.status();
         let text = profile_resp.text().await.unwrap_or_default();
-        return Err(format!("Failed to load Minecraft profile (HTTP {}): {}", status, text));
+        return Err(format!(
+            "Failed to load Minecraft profile (HTTP {}): {}",
+            status, text
+        ));
     }
 
     let profile_json: serde_json::Value = profile_resp.json().await.map_err(|e| e.to_string())?;
@@ -1394,7 +1414,7 @@ async fn refresh_microsoft_profile(
     client: &reqwest::Client,
     refresh_token: &str,
 ) -> Result<MicrosoftAccountProfile, String> {
-    let (msa_access, msa_refresh) = exchange_msa_token_request(
+    let token_res = exchange_msa_token_request(
         client,
         &[
             ("client_id", MS_CLIENT_ID),
@@ -1404,7 +1424,23 @@ async fn refresh_microsoft_profile(
             ("redirect_uri", MS_REDIRECT_URI),
         ],
     )
-    .await?;
+    .await;
+
+    let (msa_access, msa_refresh) = match token_res {
+        Ok(pair) => pair,
+        Err(_) => {
+            exchange_msa_token_request(
+                client,
+                &[
+                    ("client_id", MS_CLIENT_ID),
+                    ("refresh_token", refresh_token),
+                    ("grant_type", "refresh_token"),
+                    ("redirect_uri", MS_REDIRECT_URI),
+                ],
+            )
+            .await?
+        }
+    };
 
     let final_refresh = if msa_refresh.is_empty() {
         refresh_token.to_string()
@@ -1412,6 +1448,49 @@ async fn refresh_microsoft_profile(
         msa_refresh
     };
     authenticate_xbox_and_minecraft(client, &msa_access, final_refresh).await
+}
+
+fn extract_ms_oauth_callback(url: &tauri::Url) -> Option<Result<String, String>> {
+    let s = url.as_str();
+    let is_callback = s.starts_with(MS_REDIRECT_URI)
+        || (url.host_str() == Some("login.live.com")
+            && url.path().contains("oauth20_desktop.srf"));
+    if !is_callback {
+        return None;
+    }
+
+    let mut code_opt: Option<String> = None;
+    let mut err_opt: Option<String> = None;
+    for (k, v) in url.query_pairs() {
+        if k == "code" && !v.is_empty() {
+            code_opt = Some(v.into_owned());
+        } else if k == "error_description" && !v.is_empty() {
+            err_opt = Some(v.into_owned());
+        } else if k == "error" && !v.is_empty() && err_opt.is_none() {
+            err_opt = Some(v.into_owned());
+        }
+    }
+
+    // Also inspect URL fragment (#code=...) in case Microsoft ever returns it there
+    if code_opt.is_none() && err_opt.is_none() {
+        if let Some(frag) = url.fragment() {
+            for pair in frag.split('&') {
+                if let Some((k, v)) = pair.split_once('=') {
+                    if k == "code" && !v.is_empty() {
+                        code_opt = Some(v.to_string());
+                    } else if (k == "error_description" || k == "error") && !v.is_empty() {
+                        err_opt = Some(v.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    if let Some(code) = code_opt {
+        Some(Ok(code))
+    } else {
+        err_opt.map(Err)
+    }
 }
 
 #[tauri::command]
@@ -1429,49 +1508,50 @@ async fn login_microsoft(app: AppHandle) -> Result<MicrosoftAccountProfile, Stri
     let (tx, rx) = tokio::sync::oneshot::channel::<Result<String, String>>();
     let tx_holder = Arc::new(std::sync::Mutex::new(Some(tx)));
     let tx_nav = tx_holder.clone();
+    let tx_load = tx_holder.clone();
+    let tx_poll = tx_holder.clone();
     let tx_destroy = tx_holder.clone();
     let app_nav = app.clone();
+    let app_load = app.clone();
+    let app_poll = app.clone();
 
     let auth_win = WebviewWindowBuilder::new(&app, "ms-auth", WebviewUrl::External(auth_url))
         .title("Microsoft Sign In — FameLauncher")
-        .inner_size(500.0, 660.0)
+        .inner_size(520.0, 680.0)
         .center()
         .resizable(true)
         .focused(true)
         .on_navigation(move |nav_url| {
-            let s = nav_url.as_str();
-            if s.starts_with(MS_REDIRECT_URI) {
-                let mut code_opt: Option<String> = None;
-                let mut err_opt: Option<String> = None;
-                for (k, v) in nav_url.query_pairs() {
-                    if k == "code" && !v.is_empty() {
-                        code_opt = Some(v.into_owned());
-                    } else if (k == "error_description" || k == "error") && !v.is_empty() {
-                        err_opt = Some(v.into_owned());
+            if let Some(result) = extract_ms_oauth_callback(nav_url) {
+                if let Ok(mut guard) = tx_nav.lock() {
+                    if let Some(sender) = guard.take() {
+                        let _ = sender.send(result);
                     }
                 }
-                if code_opt.is_some() || err_opt.is_some() {
-                    if let Ok(mut guard) = tx_nav.lock() {
-                        if let Some(sender) = guard.take() {
-                            if let Some(code) = code_opt {
-                                let _ = sender.send(Ok(code));
-                            } else {
-                                let _ = sender.send(Err(
-                                    err_opt.unwrap_or_else(|| "Microsoft OAuth error".to_string())
-                                ));
-                            }
-                        }
+                let app_close = app_nav.clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Some(w) = app_close.get_webview_window("ms-auth") {
+                        let _ = w.close();
                     }
-                    let app_close = app_nav.clone();
-                    tauri::async_runtime::spawn(async move {
-                        if let Some(w) = app_close.get_webview_window("ms-auth") {
-                            let _ = w.close();
-                        }
-                    });
-                    return false;
-                }
+                });
+                return false;
             }
             true
+        })
+        .on_page_load(move |_window, payload| {
+            if let Some(result) = extract_ms_oauth_callback(payload.url()) {
+                if let Ok(mut guard) = tx_load.lock() {
+                    if let Some(sender) = guard.take() {
+                        let _ = sender.send(result);
+                    }
+                }
+                let app_close = app_load.clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Some(w) = app_close.get_webview_window("ms-auth") {
+                        let _ = w.close();
+                    }
+                });
+            }
         })
         .build()
         .map_err(|e| format!("Failed to open Microsoft sign-in window: {}", e))?;
@@ -1486,13 +1566,45 @@ async fn login_microsoft(app: AppHandle) -> Result<MicrosoftAccountProfile, Stri
         }
     });
 
-    let code = tokio::time::timeout(std::time::Duration::from_secs(300), rx)
-        .await
+    // Fallback URL poller in case WebView2 server-side 302 redirect bypasses on_navigation
+    let poller = tauri::async_runtime::spawn(async move {
+        let mut tick = tokio::time::interval(std::time::Duration::from_millis(200));
+        loop {
+            tick.tick().await;
+            let done = tx_poll.lock().map(|g| g.is_none()).unwrap_or(true);
+            if done {
+                break;
+            }
+            if let Some(w) = app_poll.get_webview_window("ms-auth") {
+                if let Ok(cur_url) = w.url() {
+                    if let Some(result) = extract_ms_oauth_callback(&cur_url) {
+                        if let Ok(mut guard) = tx_poll.lock() {
+                            if let Some(sender) = guard.take() {
+                                let _ = sender.send(result);
+                            }
+                        }
+                        let _ = w.close();
+                        break;
+                    }
+                }
+            } else {
+                break;
+            }
+        }
+    });
+
+    let code_res = tokio::time::timeout(std::time::Duration::from_secs(300), rx).await;
+    poller.abort();
+    if let Some(w) = app.get_webview_window("ms-auth") {
+        let _ = w.close();
+    }
+
+    let code = code_res
         .map_err(|_| "Время ожидания входа Microsoft истекло".to_string())?
         .map_err(|_| "Авторизация Microsoft прервана".to_string())??;
 
     let client = build_http_client(30)?;
-    let (msa_access, msa_refresh) = exchange_msa_token_request(
+    let primary_exchange = exchange_msa_token_request(
         &client,
         &[
             ("client_id", MS_CLIENT_ID),
@@ -1502,7 +1614,23 @@ async fn login_microsoft(app: AppHandle) -> Result<MicrosoftAccountProfile, Stri
             ("scope", MS_SCOPE),
         ],
     )
-    .await?;
+    .await;
+
+    let (msa_access, msa_refresh) = match primary_exchange {
+        Ok(pair) => pair,
+        Err(_) => {
+            exchange_msa_token_request(
+                &client,
+                &[
+                    ("client_id", MS_CLIENT_ID),
+                    ("code", &code),
+                    ("grant_type", "authorization_code"),
+                    ("redirect_uri", MS_REDIRECT_URI),
+                ],
+            )
+            .await?
+        }
+    };
 
     authenticate_xbox_and_minecraft(&client, &msa_access, msa_refresh).await
 }
@@ -1984,6 +2112,12 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
         "-XX:+UseG1GC".to_string(),
         "-XX:HeapDumpPath=MojangTricksIntelDriversForPerformance_javaw.exe_minecraft.exe.heapdump"
             .to_string(),
+        // Fix Windows + Java 21 DNS / IPv6 "Unknown host" on Minecraft servers
+        "-Djava.net.preferIPv4Stack=true".to_string(),
+        "-Djava.net.preferIPv4Addresses=true".to_string(),
+        "-Dnetworkaddress.cache.ttl=30".to_string(),
+        "-Dnetworkaddress.cache.negative.ttl=0".to_string(),
+        "-Djava.net.useSystemProxies=false".to_string(),
         format!("-Djava.library.path={}", natives_str),
         format!("-Dorg.lwjgl.librarypath={}", natives_str),
         format!("-Dorg.lwjgl.system.SharedLibraryExtractPath={}", natives_str),
@@ -2007,6 +2141,16 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
     jvm_args.push("-cp".to_string());
     jvm_args.push(classpath);
 
+    let clean_uuid: String = launch_uuid
+        .chars()
+        .filter(|c| c.is_ascii_hexdigit())
+        .collect();
+    let arg_uuid = if clean_uuid.len() == 32 {
+        clean_uuid
+    } else {
+        launch_uuid
+    };
+
     let mut game_args = vec![
         "--username".to_string(),
         launch_username,
@@ -2019,11 +2163,15 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
         "--assetIndex".to_string(),
         asset_index_id,
         "--uuid".to_string(),
-        launch_uuid,
+        arg_uuid,
         "--accessToken".to_string(),
         launch_token,
         "--userType".to_string(),
         launch_user_type,
+        "--xuid".to_string(),
+        "".to_string(),
+        "--clientId".to_string(),
+        "".to_string(),
         "--userProperties".to_string(),
         "{}".to_string(),
         "--versionType".to_string(),
