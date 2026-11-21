@@ -27,7 +27,7 @@ const GITHUB_RAW_BASE: &str =
 const DEFAULT_CHANGELOG_JSON: &str = include_str!("../../changelog.json");
 const DEFAULT_MANIFEST_JSON: &str = include_str!("../../manifest.json");
 const LAUNCHER_USER_AGENT: &str =
-    "FameLauncher/1.3.5 (https://github.com/Txmih/famevisuals-launcher)";
+    "FameLauncher/1.3.6 (https://github.com/Txmih/famevisuals-launcher)";
 const MS_CLIENT_ID: &str = "00000000402b5328";
 const MS_REDIRECT_URI: &str = "https://login.live.com/oauth20_desktop.srf";
 const MS_SCOPE: &str = "service::user.auth.xboxlive.com::MBI_SSL";
@@ -725,6 +725,7 @@ async fn sync_official_modpack(
     let manifest_url = format!("{}/manifest.json?t={}", GITHUB_RAW_BASE, ts);
     let manifest: ModManifest = match client
         .get(&manifest_url)
+        .timeout(std::time::Duration::from_secs(6))
         .header("Cache-Control", "no-cache, no-store")
         .header("Pragma", "no-cache")
         .send()
@@ -770,29 +771,32 @@ async fn sync_official_modpack(
         .sum();
     let downloaded_acc = Arc::new(AtomicU64::new(0));
 
+    let same_manifest_ver = prev_state.version == manifest.version && !manifest.version.is_empty();
+
     for (idx, file) in manifest.files.iter().enumerate() {
         sanitize_single_filename(&file.name)?;
         let active_path = mods_dir.join(&file.name);
         let disabled_path = mods_dir.join(format!("{}.disabled", file.name));
 
-        let (target_path, existing_ok) = if active_path.exists() {
-            let hash_ok = file.sha256.is_empty()
-                || tokio::task::spawn_blocking({
-                    let p = active_path.clone();
-                    let expected = file.sha256.clone();
-                    move || {
-                        compute_sha256_hex(&p)
-                            .map(|h| h.eq_ignore_ascii_case(&expected))
-                            .unwrap_or(false)
-                    }
-                })
-                .await
-                .unwrap_or(false);
-            (active_path, hash_ok)
+        let check_path = if active_path.exists() {
+            Some(active_path.clone())
         } else if disabled_path.exists() {
-            let hash_ok = file.sha256.is_empty()
+            Some(disabled_path.clone())
+        } else {
+            None
+        };
+
+        let (target_path, existing_ok) = if let Some(existing_path) = check_path {
+            let fast_size_match = same_manifest_ver
+                && file.size > 0
+                && tokio::fs::metadata(&existing_path)
+                    .await
+                    .map(|m| m.is_file() && m.len() == file.size)
+                    .unwrap_or(false);
+            let hash_ok = fast_size_match
+                || file.sha256.is_empty()
                 || tokio::task::spawn_blocking({
-                    let p = disabled_path.clone();
+                    let p = existing_path.clone();
                     let expected = file.sha256.clone();
                     move || {
                         compute_sha256_hex(&p)
@@ -802,7 +806,7 @@ async fn sync_official_modpack(
                 })
                 .await
                 .unwrap_or(false);
-            (disabled_path, hash_ok)
+            (existing_path, hash_ok)
         } else {
             (active_path, false)
         };
@@ -2189,27 +2193,31 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
     };
 
     if let Some(objects) = asset_index_json.get("objects").and_then(|v| v.as_object()) {
-        let mut asset_tasks = Vec::with_capacity(objects.len());
-        for (_, obj) in objects {
-            let Some(hash) = obj.get("hash").and_then(|v| v.as_str()) else {
-                continue;
-            };
-            if hash.len() < 2 {
-                continue;
+        let verified_marker = assets_dir.join(format!(".verified_{}_{}", asset_index_id, objects.len()));
+        if !verified_marker.is_file() {
+            let mut asset_tasks = Vec::with_capacity(objects.len());
+            for (_, obj) in objects {
+                let Some(hash) = obj.get("hash").and_then(|v| v.as_str()) else {
+                    continue;
+                };
+                if hash.len() < 2 {
+                    continue;
+                }
+                let size = obj.get("size").and_then(|v| v.as_u64()).unwrap_or(0);
+                let prefix = &hash[..2];
+                let dest = objects_dir.join(prefix).join(hash);
+                let url = format!("https://resources.download.minecraft.net/{}/{}", prefix, hash);
+                asset_tasks.push(DownloadTask {
+                    url,
+                    dest,
+                    sha1: Some(hash.to_string()),
+                    size,
+                    is_native: false,
+                });
             }
-            let size = obj.get("size").and_then(|v| v.as_u64()).unwrap_or(0);
-            let prefix = &hash[..2];
-            let dest = objects_dir.join(prefix).join(hash);
-            let url = format!("https://resources.download.minecraft.net/{}/{}", prefix, hash);
-            asset_tasks.push(DownloadTask {
-                url,
-                dest,
-                sha1: Some(hash.to_string()),
-                size,
-                is_native: false,
-            });
+            run_download_pool(&app, &client, asset_tasks, &natives_dir, 70.0, 22.0, true).await?;
+            let _ = tokio::fs::write(&verified_marker, b"ok").await;
         }
-        run_download_pool(&app, &client, asset_tasks, &natives_dir, 70.0, 22.0, true).await?;
     }
 
     // 4. Spawn Minecraft 1.21.11 + Fabric Process
@@ -2236,6 +2244,13 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
         format!("-Xms{}M", xms),
         "-XX:+UnlockExperimentalVMOptions".to_string(),
         "-XX:+UseG1GC".to_string(),
+        "-XX:+ParallelRefProcEnabled".to_string(),
+        "-XX:MaxGCPauseMillis=50".to_string(),
+        "-XX:+DisableExplicitGC".to_string(),
+        "-XX:G1NewSizePercent=20".to_string(),
+        "-XX:G1ReservePercent=15".to_string(),
+        "-XX:InitiatingHeapOccupancyPercent=20".to_string(),
+        "-XX:+UseStringDeduplication".to_string(),
         "-XX:HeapDumpPath=MojangTricksIntelDriversForPerformance_javaw.exe_minecraft.exe.heapdump"
             .to_string(),
         // Fix Windows + Java 21 DNS / IPv6 "Unknown host" on Minecraft servers

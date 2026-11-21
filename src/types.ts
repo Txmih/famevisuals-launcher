@@ -1,6 +1,6 @@
 export type Language = "en" | "ru" | "pl";
 
-export type TabId = "home" | "profile" | "mods" | "changelog" | "settings";
+export type TabId = "home" | "friends" | "profile" | "admin" | "mods" | "changelog" | "settings";
 
 export type AccountType = "offline" | "microsoft";
 
@@ -16,13 +16,21 @@ export interface GlobalsFriend {
   avatar?: string;
 }
 
-export interface GlobalsOnlinePlayer {
+export interface AdminUserRecord {
   login: string;
-  nick?: string;
+  nick: string;
+  email: string;
+  role: string;
+  last_ip: string;
+  online: boolean;
+  source: string;
   server: string;
-  activity: string;
-  source?: string;
-  same_server?: boolean;
+  banned: boolean;
+  banned_until: number;
+  muted: boolean;
+  muted_until: number;
+  ip_banned: boolean;
+  created_at: number;
 }
 
 export interface LauncherSettings {

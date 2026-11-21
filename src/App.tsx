@@ -31,7 +31,9 @@ import {
   X,
 } from "lucide-react";
 import logoImg from "./assets/logo.png";
+import { AdminPanel } from "./AdminPanel";
 import { AuthGate } from "./AuthGate";
+import { FriendsPanel } from "./FriendsPanel";
 import { getBackendHttpBase, getBackendWsUrl } from "./globalsEndpoint";
 import { ProfileTab } from "./ProfileTab";
 import { TRANSLATIONS } from "./i18n";
@@ -126,6 +128,24 @@ function IconFriends({ className = "h-[19px] w-[19px]" }: { className?: string }
       <circle cx="9" cy="7" r="4" />
       <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+
+function IconProfile({ className = "h-[19px] w-[19px]" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 20a8 8 0 0 1 16 0" />
+    </svg>
+  );
+}
+
+function IconAdmin({ className = "h-[19px] w-[19px]" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M12 3l7 3v5c0 5-3.2 8.7-7 10-3.8-1.3-7-5-7-10V6l7-3z" />
+      <path d="M9.5 12l1.8 1.8L15 10" />
     </svg>
   );
 }
@@ -264,7 +284,7 @@ export function App() {
   const [systemInfo, setSystemInfo] = useState<SystemInfo>({
     totalRamMb: 16384,
     defaultGameDir: "",
-    launcherVersion: "1.3.5",
+    launcherVersion: "1.3.6",
   });
   const [settings, setSettings] = useState<LauncherSettings>(DEFAULT_SETTINGS);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -904,6 +924,9 @@ export function App() {
     updateSettings,
   ]);
 
+  const isAdminUser =
+    globalsRole === "admin" || (settings.globalsLogin || "").toLowerCase() === "txmih";
+
   const navItems: {
     id: TabId;
     label: string;
@@ -912,6 +935,12 @@ export function App() {
   }[] = [
     { id: "home", label: t.navHome, icon: IconHome },
     {
+      id: "friends",
+      label: t.navFriends,
+      icon: IconFriends,
+      badge: globalsRequests.length > 0 ? globalsRequests.length : undefined,
+    },
+    {
       id: "profile",
       label:
         settings.language === "ru"
@@ -919,9 +948,17 @@ export function App() {
           : settings.language === "pl"
             ? "Profil"
             : "Profile",
-      icon: IconFriends,
-      badge: globalsRequests.length > 0 ? globalsRequests.length : undefined,
+      icon: IconProfile,
     },
+    ...(isAdminUser
+      ? [
+          {
+            id: "admin" as TabId,
+            label: settings.language === "ru" ? "Игроки (Админ)" : "Admin Players",
+            icon: IconAdmin,
+          },
+        ]
+      : []),
     { id: "mods", label: t.navMods, icon: IconMods },
     { id: "changelog", label: t.navChangelog, icon: IconChangelog },
     { id: "settings", label: t.navSettings, icon: IconSettings },
@@ -1047,15 +1084,7 @@ export function App() {
                   {active && (
                     <span className="absolute -left-[12px] h-5 w-[3px] rounded-r-full bg-white" />
                   )}
-                  {item.id === "profile" && globalsAvatar ? (
-                    <img
-                      src={`data:image/png;base64,${globalsAvatar}`}
-                      alt="Profile"
-                      className="h-6 w-6 rounded-lg object-cover ring-1 ring-white/20"
-                    />
-                  ) : (
-                    <Icon className="h-[19px] w-[19px]" />
-                  )}
+                  <Icon className="h-[19px] w-[19px]" />
                   {item.badge && item.badge > 0 && (
                     <span className="absolute right-1.5 top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber-400 px-1 text-[9px] font-bold text-zinc-950">
                       {item.badge}
@@ -1729,7 +1758,21 @@ export function App() {
             </div>
           )}
 
-          {/* ======================== PROFILE & FRIENDS TAB ======================== */}
+          {/* ======================== FRIENDS TAB ======================== */}
+          {activeTab === "friends" && (
+            <FriendsPanel
+              language={settings.language}
+              settings={settings}
+              connected={globalsConnected}
+              totalOnline={globalsTotalOnline}
+              friends={globalsFriends}
+              requests={globalsRequests}
+              showToast={showToast}
+              onRefresh={refreshGlobalsFriends}
+            />
+          )}
+
+          {/* ======================== PROFILE TAB ======================== */}
           {activeTab === "profile" && (
             <ProfileTab
               language={settings.language}
@@ -1737,12 +1780,10 @@ export function App() {
               userRole={globalsRole}
               userAvatar={globalsAvatar}
               userEmail={globalsEmail}
-              connected={globalsConnected}
+              friendsCount={globalsFriends.length}
+              onlineFriendsCount={globalsFriends.filter((f) => f.online).length}
               totalOnline={globalsTotalOnline}
-              friends={globalsFriends}
-              requests={globalsRequests}
               showToast={showToast}
-              onRefresh={refreshGlobalsFriends}
               onAvatarUpdated={(newB64) => setGlobalsAvatar(newB64)}
               onSignOut={() => {
                 updateSettings({ globalsLogin: null, globalsToken: null });
@@ -1752,7 +1793,17 @@ export function App() {
                 setGlobalsAvatar("");
                 setGlobalsEmail("");
                 setGlobalsConnected(false);
+                setActiveTab("home");
               }}
+            />
+          )}
+
+          {/* ======================== ADMIN PLAYERS TAB ======================== */}
+          {activeTab === "admin" && isAdminUser && (
+            <AdminPanel
+              language={settings.language}
+              settings={settings}
+              showToast={showToast}
             />
           )}
 

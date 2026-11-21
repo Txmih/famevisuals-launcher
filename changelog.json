@@ -1,44 +1,88 @@
 [
   {
-    "version": "v2.6.5",
+    "version": "v2.6.6",
     "date": "2026-11-21",
     "isLatest": true,
     "title": {
-      "en": "Fortnite Emotions & 3D Preview, Native Dark Friends UI, Gmail Auth & Recovery, Friend Cosmetics Sync & Profile Avatars",
-      "ru": "Модуль Emotions (эмоции Fortnite + 3D превью), обновлённый дизайн Friends, вход с Gmail и восстановлением пароля, косметика друзей и профиль с аватарками",
-      "pl": "Moduł Emotions (emotki Fortnite + podgląd 3D), nowy design Znajomych, rejestracja z Gmail, kosmetyki znajomych i profil z awatarem"
+      "en": "Interactive 3D Cosmetics Preview, 5-Slot Emote Wheel with Live Preview, Crisp Menu Icons & Faster Client Startup",
+      "ru": "3D-превью косметики с вращением, обновлённое колесо эмоций на 5 слотов, чёткие иконки меню и быстрый запуск",
+      "pl": "Podgląd 3D kosmetyków z obrotem, koło emotek na 5 slotów, wyraźne ikony menu i szybszy start"
     },
     "changes": [
       {
         "category": "NEW",
         "text": {
-          "en": "Added Emotions module with Fortnite-style radial wheel (key B) and 10 procedural emotes (T-Pose, Griddy, Default Dance, Take The L, Floss, Orange Justice, Electro Shuffle, Dab, Wave, Salute), live 3D grey mannequin preview in ClickGUI, and real-time sync with friends.",
-          "ru": "Добавлен модуль Emotions с колесом эмоций в стиле Fortnite (клавиша B) и 10 танцами (T-Pose, Griddy, Default Dance, Take The L, Floss, Orange Justice, Electro Shuffle, Dab, Wave, Salute), живым 3D-превью серого манекена в ClickGUI и синхронизацией с друзьями.",
-          "pl": "Dodano moduł Emotions z kołem emotek w stylu Fortnite (klawisz B), 10 animacjami, podglądem 3D szarego manekina w ClickGUI oraz synchronizacją ze znajomymi."
-        }
-      },
-      {
-        "category": "NEW",
-        "text": {
-          "en": "Added mandatory Gmail 6-digit code verification & 6-digit password recovery in FameLauncher and client, personal Profile tab with custom avatar upload, automatic Minecraft auth sync, and hidden server endpoints.",
-          "ru": "Добавлена обязательная регистрация с 6-значным кодом на Gmail и восстановление пароля (6-значный код), вкладка «Профиль» с загрузкой собственной аватарки, авто-синхронизация входа между лаунчером и Minecraft, а серверные адреса полностью скрыты из интерфейса.",
-          "pl": "Dodano weryfikację 6-cyfrowym kodem Gmail i odzyskiwanie hasła, zakładkę Profil z własnym awatarem oraz automatyczną synchronizację logowania."
+          "en": "Cosmetics tab in ClickGUI now displays 3 columns of items alongside an interactive 3D preview of your character wearing equipped cosmetics — drag with left mouse button to rotate 360° or flip to inspect wings and backpacks.",
+          "ru": "Во вкладке «Косметика» в ClickGUI теперь 3 ряда карточек слева, а справа — живое 3D-превью вашего персонажа со всей надетой косметикой. Игрока можно свободно вращать на 360° зажатием ЛКМ и разворачивать спиной в один клик.",
+          "pl": "Zakładka Kosmetyki w ClickGUI ma teraz 3 kolumny po lewej oraz interaktywny podgląd 3D Twojej postaci z możliwością obracania 360° myszką."
         }
       },
       {
         "category": "IMPROVED",
         "text": {
-          "en": "Redesigned Friends & Chat screen in native dark-glass ClickGUI/MainMenu style (no blue stripes), moved Friends button to a sleek bottom dock icon in Main Menu, removed heavy snowball & voice features, and hid public player lists (showing total online count only).",
-          "ru": "Переработан интерфейс окна Friends и чата под единый тёмный стиль ClickGUI и Главного меню (без голубых полос), кнопка друзей перенесена в компактную иконку нижнего дока Главного меню, убраны снежки и войс-чат, скрыты списки случайных игроков онлайн (только общий счётчик).",
-          "pl": "Przeprojektowano ekran Znajomych i czatu w ciemnym stylu ClickGUI/Menu Głównego, przeniesiono ikonę znajomych do dolnego paska, usunięto śnieżki i czat głosowy."
+          "en": "Reworked the Emotes wheel: pick up to 5 favorite emotes in ClickGUI, hold the emote key (default B) to smoothly open the wheel with a live 3D grey model previewing the hovered animation right in the center, and release to play.",
+          "ru": "Полностью переработано колесо эмоций: во вкладке Emotions можно выбрать ровно 5 любимых эмоций для быстрого доступа. При зажатии клавиши (по умолчанию B) плавно открывается колесо с живой серой 3D-моделькой в центре, которая сразу показывает выбранную анимацию, а при отпускании клавиши эмоция мгновенно запускается.",
+          "pl": "Przebudowano koło emotek: wybierz 5 ulubionych emotek w ClickGUI, przytrzymaj klawisz (domyślnie B), aby zobaczyć podgląd na szarym modelu 3D w centrum i puść, aby uruchomić."
+        }
+      },
+      {
+        "category": "IMPROVED",
+        "text": {
+          "en": "Redrew all ClickGUI sidebar icons into sharp, clean minimalist vectors (no cartoonish look), replaced the old default chat avatar with a clean grey user icon and FameVisuals logo for global chat, and added anti-spam chat cooldowns on the server.",
+          "ru": "Перерисованы все иконки разделов ClickGUI — теперь они чёткие и минималистичные. Убрана старая стандартная аватарка в чате друзей (заменена на аккуратную серую иконку пользователя и логотип FameVisuals для общего чата). На сервере добавлен антиспам-кулдаун на сообщения для стабильной работы.",
+          "pl": "Przerysowano wszystkie ikony ClickGUI na ostre i minimalistyczne, zastąpiono stary domyślny awatar czatu szarą ikoną użytkownika i dodano cooldown antyspamowy na serwerze."
+        }
+      },
+      {
+        "category": "IMPROVED",
+        "text": {
+          "en": "Significantly accelerated Minecraft startup in both FameLauncher and client (cached mod/asset verification, faster splash transition, async background services, and tuned Java 21 GC flags) and separated Friends & Profile tabs in FameLauncher v1.3.6.",
+          "ru": "Существенно ускорен запуск клиента (кэширование проверки модов и ассетов в лаунчере, ускоренное закрытие экрана загрузки, вынос фоновых сервисов в отдельные потоки и оптимизированные параметры Java 21). В FameLauncher v1.3.6 разделены вкладки «Друзья» и «Профиль» с сохранением строгих иконок меню.",
+          "pl": "Znacznie przyspieszono uruchamianie klienta (szybka weryfikacja modów i zasobów, zoptymalizowane flagi Java 21) oraz rozdzielono zakładki Znajomi i Profil w FameLauncher v1.3.6."
+        }
+      }
+    ]
+  },
+  {
+    "version": "v2.6.5",
+    "date": "2026-11-21",
+    "isLatest": false,
+    "title": {
+      "en": "Emotes System, Redesigned Dark Friends UI, Email Verification & Recovery, Friend Cosmetics & Custom Avatars",
+      "ru": "Система эмоций, новый тёмный дизайн Friends, вход с подтверждением по почте, косметика друзей и аватарки",
+      "pl": "System emotek, nowy ciemny design Znajomych, weryfikacja e-mail, kosmetyki znajomych i własne awatary"
+    },
+    "changes": [
+      {
+        "category": "NEW",
+        "text": {
+          "en": "Added the Emotions module with 10 procedural dances and animations (T-Pose, Griddy, Dance Moves, Take The L, Floss, Orange Justice, Electro Shuffle, Dab, Wave, Salute), live 3D preview in ClickGUI, and real-time sync so friends see your emotes.",
+          "ru": "Добавлен новый модуль Emotions: 10 плавных танцев и анимаций (T-Pose, Griddy, Dance Moves, Take The L, Floss, Orange Justice, Electro Shuffle, Dab, Wave, Salute), живой 3D-просмотр в ClickGUI и синхронизация — ваши эмоции видят друзья.",
+          "pl": "Dodano moduł Emotions: 10 płynnych animacji i tańców, podgląd 3D w ClickGUI oraz synchronizację ze znajomymi."
+        }
+      },
+      {
+        "category": "NEW",
+        "text": {
+          "en": "Added Gmail 6-digit verification for new accounts and 6-digit password recovery, personal Profile page with custom avatar upload, and automatic account sync between FameLauncher and Minecraft.",
+          "ru": "Добавлена регистрация с подтверждением по 6-значному коду на почту и восстановление пароля по коду, личный профиль с загрузкой собственной аватарки и автоматическая синхронизация входа между лаунчером и Minecraft.",
+          "pl": "Dodano rejestrację z 6-cyfrowym kodem e-mail, odzyskiwanie hasła, profil z własnym awatarem i automatyczną synchronizację logowania."
+        }
+      },
+      {
+        "category": "IMPROVED",
+        "text": {
+          "en": "Redesigned the Friends & Chat window to match ClickGUI and Main Menu dark glass theme, moved the Friends shortcut into the bottom dock bar of the Main Menu, and removed heavy snowball & voice chat modules.",
+          "ru": "Полностью обновлён дизайн окна друзей и чата под тёмный стиль ClickGUI и Главного меню, кнопка друзей перенесена в компактную иконку нижнего дока, убраны лишние модули снежков и войс-чата.",
+          "pl": "Przeprojektowano okno znajomych i czatu w ciemnym stylu ClickGUI, przeniesiono skrót do dolnego paska Menu Głównego i usunięto zbędne moduły."
         }
       },
       {
         "category": "FIX",
         "text": {
-          "en": "Fixed friend FameVisuals logo badges above heads & in Tab (now matches by UUID and Minecraft nick), fixed WebPanels & Waypoints visibility for friends, and added live sync for friend 3D cosmetics & pets.",
-          "ru": "Исправлено отображение логотипа FameVisuals перед никами друзей над головой и в Табе (поиск по UUID и нику Minecraft), исправлена видимость Web Panels и Waypoints у друзей и добавлена синхронизация 3D-косметики и питомцев друзей.",
-          "pl": "Naprawiono logo FameVisuals przed nickami znajomych, widoczność Web Panels i Waypoints u znajomych oraz synchronizację kosmetyków 3D i zwierzaków."
+          "en": "Fixed FameVisuals badge visibility next to friends' names above heads and in Tab, fixed Web Panels & Waypoints sharing between friends, and enabled live 3D cosmetics & pet synchronization for friends.",
+          "ru": "Исправлено отображение логотипа FameVisuals перед никами друзей над головой и в Табе, исправлена видимость Web Panels и Waypoints у друзей и добавлена синхронизация 3D-косметики и питомцев друзей.",
+          "pl": "Naprawiono wyświetlanie ikony FameVisuals przy nickach znajomych, widoczność Web Panels i Waypoints oraz dodano synchronizację kosmetyków 3D i zwierzaków."
         }
       }
     ]
@@ -268,17 +312,17 @@
     "date": "2026-11-20",
     "isLatest": false,
     "title": {
-      "en": "Weather-Changing Valorant Finishers, Nyan Cat Trails, Shulker Preview Fix & FameLauncher 1.3",
-      "ru": "Погодные Valorant-финишеры, Nyan Cat Trails, фикс Shulker Preview и FameLauncher 1.3",
-      "pl": "Efekty pogodowe Valorant, Nyan Cat Trails, poprawka Shulker Preview i FameLauncher 1.3"
+      "en": "Atmospheric Kill Effects (Sakura, Kuronami, Reaver), Nyan Cat Trails, Shulker Preview Fix & FameLauncher 1.3",
+      "ru": "Новые килл-эффекты (Сакура, Kuronami, Reaver), Nyan Cat Trails, фикс Shulker Preview и FameLauncher 1.3",
+      "pl": "Nowe efekty zabójstw (Sakura, Kuronami, Reaver), Nyan Cat Trails, poprawka Shulker Preview i FameLauncher 1.3"
     },
     "changes": [
       {
         "category": "NEW",
         "text": {
-          "en": "Weather-changing slow-motion Valorant Kill Effects with authentic audio: Sakura (twilight cherry-blossom sky + blooming 3D sakura tree + slow-drifting petals), Kuronami (midnight storm + floating water sphere + lightning + rain) and Reaver (shadow-realm eclipse + abyssal claws + soul pull).",
-          "ru": "Погодные замедленные Valorant-финишеры в Kill Effects с оригинальными звуками: Сакура (сумеречное розовое небо, расцветающее 3D-дерево сакуры и медленно падающие лепестки), Kuronami (ночная гроза, сфера воды, молнии и дождь) и Reaver (тёмное затмение, когти бездны и затягивание души).",
-          "pl": "Efekty zabójstw Valorant ze zmianą pogody i oryginalnymi dźwiękami: Sakura (różowe niebo, kwitnące drzewo 3D i płatki), Kuronami (burza, kula wody, pioruny i deszcz) oraz Reaver (mroczne zaćmienie i portal)."
+          "en": "Added atmospheric slow-motion Kill Effects with custom audio: Sakura (twilight cherry-blossom sky + blooming 3D sakura tree + slow-drifting petals), Kuronami (midnight storm + floating water sphere + lightning + rain) and Reaver (shadow-realm eclipse + abyssal claws + soul pull).",
+          "ru": "Добавлены атмосферные килл-эффекты со звуками: Сакура (сумеречное розовое небо, расцветающее 3D-дерево сакуры и медленно падающие лепестки), Kuronami (ночная гроза, сфера воды, молнии и дождь) и Reaver (тёмное затмение, когти бездны и затягивание души).",
+          "pl": "Dodano klimatyczne efekty zabójstw z dźwiękami: Sakura (różowe niebo, kwitnące drzewo 3D i płatki), Kuronami (burza, kula wody, pioruny i deszcz) oraz Reaver (mroczne zaćmienie i portal)."
         }
       },
       {
