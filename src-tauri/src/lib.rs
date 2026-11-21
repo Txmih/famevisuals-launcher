@@ -27,7 +27,98 @@ const GITHUB_RAW_BASE: &str =
 const DEFAULT_CHANGELOG_JSON: &str = include_str!("../../changelog.json");
 const DEFAULT_MANIFEST_JSON: &str = include_str!("../../manifest.json");
 const LAUNCHER_USER_AGENT: &str =
-    "FameLauncher/1.3.6 (https://github.com/Txmih/famevisuals-launcher)";
+    "FameLauncher/1.3.7 (https://github.com/Txmih/famevisuals-launcher)";
+const BACKEND_BASE_URL: &str = "http://162.35.56.235:5555";
+const RT_XOR_KEY: &[u8] = b"Fv#92kL!xP7qM4zW8nR1vT6yB3cD5hJ0";
+
+fn compute_hwid() -> String {
+    use sha2::Digest;
+    let mut parts = String::new();
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        if let Ok(out) = std::process::Command::new("reg")
+            .args([
+                "query",
+                r"HKLM\SOFTWARE\Microsoft\Cryptography",
+                "/v",
+                "MachineGuid",
+            ])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output()
+        {
+            let txt = String::from_utf8_lossy(&out.stdout);
+            for line in txt.lines() {
+                if line.contains("MachineGuid") {
+                    if let Some(val) = line.split_whitespace().last() {
+                        parts.push_str(val.trim());
+                    }
+                }
+            }
+        }
+    }
+    if parts.is_empty() {
+        parts.push_str(&std::env::var("COMPUTERNAME").unwrap_or_default());
+        parts.push('|');
+        parts.push_str(&std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_default());
+    }
+    let mut hasher = Sha256::new();
+    hasher.update(b"FAMEVISUALS_HWID_V1:");
+    hasher.update(parts.as_bytes());
+    let digest = hasher.finalize();
+    let hex_str = hex::encode_upper(&digest[..6]); // 12 uppercase hex chars
+    format!("FV-{}-{}-{}", &hex_str[0..4], &hex_str[4..8], &hex_str[8..12])
+}
+
+#[tauri::command]
+fn get_hwid() -> String {
+    compute_hwid()
+}
+
+fn xor_transform(data: &[u8]) -> Vec<u8> {
+    let klen = RT_XOR_KEY.len();
+    let mut out = Vec::with_capacity(data.len());
+    for (i, &b) in data.iter().enumerate() {
+        out.push(b ^ RT_XOR_KEY[i % klen] ^ ((i.wrapping_mul(31) & 0xFF) as u8));
+    }
+    out
+}
+
+fn hide_file_windows(path: &Path) {
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        let _ = std::process::Command::new("attrib")
+            .args(["+h", "+s", &path.to_string_lossy()])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output();
+    }
+    #[cfg(not(target_os = "windows"))]
+    let _ = path;
+}
+
+fn cleanup_stale_hidden_mods() {
+    let tmp = std::env::temp_dir();
+    if let Ok(entries) = std::fs::read_dir(&tmp) {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.starts_with(".fv_rt_") && name.ends_with(".jar") {
+                let p = entry.path();
+                #[cfg(target_os = "windows")]
+                {
+                    use std::os::windows::process::CommandExt;
+                    let _ = std::process::Command::new("attrib")
+                        .args(["-h", "-s", &p.to_string_lossy()])
+                        .creation_flags(0x08000000)
+                        .output();
+                }
+                let _ = std::fs::remove_file(&p);
+            }
+        }
+    }
+}
 const MS_CLIENT_ID: &str = "00000000402b5328";
 const MS_REDIRECT_URI: &str = "https://login.live.com/oauth20_desktop.srf";
 const MS_SCOPE: &str = "service::user.auth.xboxlive.com::MBI_SSL";
@@ -715,7 +806,7 @@ async fn sync_official_modpack(
     app: &AppHandle,
     client: &reqwest::Client,
     game_dir: &Path,
-) -> Result<ModManifest, String> {
+) -> Result<(ModManifest, Option<PathBuf>), String> {
     emit_progress(app, "checking_updates", "Checking manifest...", 6.0, 0, 0);
 
     let ts = std::time::SystemTime::now()
@@ -742,6 +833,16 @@ async fn sync_official_modpack(
     tokio::fs::create_dir_all(&mods_dir)
         .await
         .map_err(|e| e.to_string())?;
+
+    // Always clean out any visible FameVisuals*.jar or removed ViaFabricPlus*.jar from mods/
+    if let Ok(mut rd) = tokio::fs::read_dir(&mods_dir).await {
+        while let Ok(Some(ent)) = rd.next_entry().await {
+            let fname = ent.file_name().to_string_lossy().to_ascii_lowercase();
+            if fname.starts_with("famevisuals") || fname.starts_with("viafabricplus") {
+                let _ = tokio::fs::remove_file(ent.path()).await;
+            }
+        }
+    }
 
     let state_path = game_dir.join("installed_manifest.json");
     let prev_state: InstalledManifestState = tokio::fs::read_to_string(&state_path)
@@ -772,9 +873,102 @@ async fn sync_official_modpack(
     let downloaded_acc = Arc::new(AtomicU64::new(0));
 
     let same_manifest_ver = prev_state.version == manifest.version && !manifest.version.is_empty();
+    let mut protected_bin_path: Option<PathBuf> = None;
 
     for (idx, file) in manifest.files.iter().enumerate() {
         sanitize_single_filename(&file.name)?;
+        let is_core_protected = file.name.to_ascii_lowercase().starts_with("famevisuals");
+
+        if is_core_protected {
+            // Store FameVisuals core mod ENCRYPTED & HIDDEN outside mods/
+            let cache_dir = dirs::data_local_dir()
+                .unwrap_or_else(|| game_dir.to_path_buf())
+                .join("FameLauncher")
+                .join(".rt");
+            tokio::fs::create_dir_all(&cache_dir)
+                .await
+                .map_err(|e| e.to_string())?;
+            hide_file_windows(&cache_dir);
+            let enc_path = cache_dir.join(".rt_core.bin");
+            let sha_marker = cache_dir.join(".rt_core.sha");
+            let cached_sha = tokio::fs::read_to_string(&sha_marker)
+                .await
+                .unwrap_or_default();
+            let already_ok = enc_path.is_file()
+                && !file.sha256.is_empty()
+                && cached_sha.trim().eq_ignore_ascii_case(&file.sha256);
+
+            if already_ok {
+                let delta = if file.size > 0 { file.size } else { 0 };
+                let done = downloaded_acc.fetch_add(delta, Ordering::Relaxed) + delta;
+                let pct = 10.0 + (idx as f64 + 1.0) / manifest.files.len().max(1) as f64 * 15.0;
+                emit_progress(app, "syncing_mods", "Syncing core...", pct, done, total_bytes);
+                protected_bin_path = Some(enc_path);
+                continue;
+            }
+
+            let dl_tmp = cache_dir.join(format!(".dl_{}.tmp", ts));
+            let acc_clone = downloaded_acc.clone();
+            let app_clone = app.clone();
+            let sep = if file.url.contains('?') { '&' } else { '?' };
+            let busted_url = format!("{}{}v={}&t={}", file.url, sep, manifest.version, ts);
+            download_to_file_with_callback(client, &busted_url, &dl_tmp, |chunk, _| {
+                let done = acc_clone.fetch_add(chunk, Ordering::Relaxed) + chunk;
+                let ratio = if total_bytes > 0 {
+                    (done as f64 / total_bytes as f64).min(1.0)
+                } else {
+                    0.5
+                };
+                emit_progress(
+                    &app_clone,
+                    "syncing_mods",
+                    "Syncing mods...",
+                    10.0 + ratio * 15.0,
+                    done,
+                    total_bytes,
+                );
+            })
+            .await?;
+
+            if !file.sha256.is_empty() {
+                let actual_hash = tokio::task::spawn_blocking({
+                    let p = dl_tmp.clone();
+                    move || compute_sha256_hex(&p).map_err(|e| e.to_string())
+                })
+                .await
+                .map_err(|e| e.to_string())??;
+                if !actual_hash.eq_ignore_ascii_case(&file.sha256) {
+                    let _ = tokio::fs::remove_file(&dl_tmp).await;
+                    return Err(format!(
+                        "SHA-256 mismatch for {}: expected {}, got {}",
+                        file.name, file.sha256, actual_hash
+                    ));
+                }
+            }
+
+            let raw_bytes = tokio::fs::read(&dl_tmp).await.map_err(|e| e.to_string())?;
+            let _ = tokio::fs::remove_file(&dl_tmp).await;
+            let enc_bytes = tokio::task::spawn_blocking(move || xor_transform(&raw_bytes))
+                .await
+                .map_err(|e| e.to_string())?;
+            #[cfg(target_os = "windows")]
+            if enc_path.exists() {
+                use std::os::windows::process::CommandExt;
+                let _ = std::process::Command::new("attrib")
+                    .args(["-h", "-s", &enc_path.to_string_lossy()])
+                    .creation_flags(0x08000000)
+                    .output();
+            }
+            tokio::fs::write(&enc_path, enc_bytes)
+                .await
+                .map_err(|e| e.to_string())?;
+            hide_file_windows(&enc_path);
+            let _ = tokio::fs::write(&sha_marker, &file.sha256).await;
+            hide_file_windows(&sha_marker);
+            protected_bin_path = Some(enc_path);
+            continue;
+        }
+
         let active_path = mods_dir.join(&file.name);
         let disabled_path = mods_dir.join(format!("{}.disabled", file.name));
 
@@ -869,7 +1063,7 @@ async fn sync_official_modpack(
         .map_err(|e| e.to_string())?;
 
     emit_progress(app, "syncing_mods", "Mods synced", 25.0, total_bytes, total_bytes);
-    Ok(manifest)
+    Ok((manifest, protected_bin_path))
 }
 
 fn find_javaw_in_dir(root: &Path) -> Option<PathBuf> {
@@ -1851,8 +2045,58 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
             )
         };
 
-    // 1. Sync official modpack from manifest.json
-    let manifest = sync_official_modpack(&app, &client, &game_dir).await?;
+    // 0. Verify active Subscription & HWID lock with backend before launching!
+    let globals_token = active_settings
+        .globals_token
+        .clone()
+        .filter(|s| !s.trim().is_empty())
+        .ok_or_else(|| "Войдите в аккаунт FameVisuals для запуска клиента.".to_string())?;
+    let hwid = tokio::task::spawn_blocking(compute_hwid)
+        .await
+        .map_err(|e| e.to_string())?;
+    emit_progress(
+        &app,
+        "checking_updates",
+        "Проверка подписки и HWID...",
+        4.0,
+        0,
+        0,
+    );
+    let auth_resp = client
+        .post(format!("{}/api/launch/authorize", BACKEND_BASE_URL))
+        .bearer_auth(&globals_token)
+        .json(&serde_json::json!({ "hwid": hwid }))
+        .timeout(std::time::Duration::from_secs(12))
+        .send()
+        .await
+        .map_err(|_| "Не удалось связаться с сервером авторизации. Проверьте интернет.".to_string())?;
+    if !auth_resp.status().is_success() {
+        return Err("Сессия истекла или аккаунт заблокирован. Перезайдите в аккаунт.".to_string());
+    }
+    let auth_json: serde_json::Value = auth_resp
+        .json()
+        .await
+        .map_err(|_| "Некорректный ответ сервера авторизации.".to_string())?;
+    if !auth_json.get("ok").and_then(|v| v.as_bool()).unwrap_or(false) {
+        let err_code = auth_json.get("error").and_then(|v| v.as_str()).unwrap_or("");
+        return Err(match err_code {
+            "no_subscription" => {
+                "У вас нет подписки. Приобретите доступ в разделе «Магазин».".to_string()
+            }
+            "hwid_mismatch" => {
+                "Ошибка привязки HWID: этот аккаунт привязан к другому ПК. Обратитесь к администратору для сброса HWID.".to_string()
+            }
+            _ => "Доступ запрещён. Перезайдите в аккаунт.".to_string(),
+        });
+    }
+    let launch_rt_token = auth_json
+        .get("launch_token")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
+    // 1. Sync official modpack from manifest.json (keeps FameVisuals core hidden & encrypted!)
+    let (manifest, protected_bin_path) = sync_official_modpack(&app, &client, &game_dir).await?;
 
     // 2. Ensure Java 21
     let javaw_exe = ensure_java_21(&app, &client, &game_dir).await?;
@@ -2334,9 +2578,48 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
         }
     }
 
-    // Clean up any stale/corrupted Fabric remapper .tmp files left by interrupted launches
+    // Clean up any stale/corrupted Fabric remapper .tmp files and old hidden temp runtime jars
     let cleanup_dir = game_dir.clone();
-    let _ = tokio::task::spawn_blocking(move || cleanup_stale_fabric_remaps(&cleanup_dir)).await;
+    let _ = tokio::task::spawn_blocking(move || {
+        cleanup_stale_fabric_remaps(&cleanup_dir);
+        cleanup_stale_hidden_mods();
+    })
+    .await;
+
+    // Decrypt hidden protected core mod to a hidden temp path & inject via -Dfabric.addMods
+    let mut temp_runtime_jar: Option<PathBuf> = None;
+    if let Some(enc_bin) = protected_bin_path {
+        let enc_bytes = tokio::fs::read(&enc_bin)
+            .await
+            .map_err(|e| format!("Failed to read core runtime: {}", e))?;
+        let plain_bytes = tokio::task::spawn_blocking(move || xor_transform(&enc_bytes))
+            .await
+            .map_err(|e| e.to_string())?;
+        let ts_now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0);
+        let rt_jar = std::env::temp_dir().join(format!(
+            ".fv_rt_{}_{}.jar",
+            std::process::id(),
+            ts_now & 0xFFFFFF
+        ));
+        tokio::fs::write(&rt_jar, plain_bytes)
+            .await
+            .map_err(|e| format!("Failed to stage core runtime: {}", e))?;
+        hide_file_windows(&rt_jar);
+        // Insert before "-cp" so Fabric Loader loads it invisibly with zero file in mods/!
+        let insert_idx = jvm_args.iter().position(|a| a == "-cp").unwrap_or(jvm_args.len());
+        jvm_args.insert(
+            insert_idx,
+            format!("-Dfabric.addMods={}", rt_jar.to_string_lossy()),
+        );
+        jvm_args.insert(
+            insert_idx + 1,
+            format!("-Dfamevisuals.rt={}", launch_rt_token),
+        );
+        temp_runtime_jar = Some(rt_jar);
+    }
 
     let mut child = std::process::Command::new(&javaw_exe)
         .current_dir(&game_dir)
@@ -2348,9 +2631,26 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
 
     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     if let Ok(Some(status)) = child.try_wait() {
+        if let Some(ref p) = temp_runtime_jar {
+            let _ = std::fs::remove_file(p);
+        }
         if !status.success() {
             return Err(format!("Minecraft exited immediately with status {}", status));
         }
+    } else if let Some(rt_to_clean) = temp_runtime_jar {
+        // Auto-shred hidden runtime JAR the moment Minecraft closes!
+        std::thread::spawn(move || {
+            let _ = child.wait();
+            #[cfg(target_os = "windows")]
+            {
+                use std::os::windows::process::CommandExt;
+                let _ = std::process::Command::new("attrib")
+                    .args(["-h", "-s", &rt_to_clean.to_string_lossy()])
+                    .creation_flags(0x08000000)
+                    .output();
+            }
+            let _ = std::fs::remove_file(&rt_to_clean);
+        });
     }
 
     emit_progress(&app, "ready", "Game launched!", 100.0, 0, 0);
@@ -2360,7 +2660,10 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(target_os = "windows")]
-    std::thread::spawn(sync_legacy_launcher_exe);
+    std::thread::spawn(|| {
+        sync_legacy_launcher_exe();
+        cleanup_stale_hidden_mods();
+    });
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -2369,6 +2672,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             get_system_info,
+            get_hwid,
             load_settings,
             save_settings,
             open_game_dir,

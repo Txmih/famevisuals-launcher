@@ -1,6 +1,14 @@
 export type Language = "en" | "ru" | "pl";
 
-export type TabId = "home" | "friends" | "profile" | "admin" | "mods" | "changelog" | "settings";
+export type TabId =
+  | "home"
+  | "friends"
+  | "shop"
+  | "profile"
+  | "admin"
+  | "mods"
+  | "changelog"
+  | "settings";
 
 export type AccountType = "offline" | "microsoft";
 
@@ -16,11 +24,49 @@ export interface GlobalsFriend {
   avatar?: string;
 }
 
+export interface PartyMember {
+  login: string;
+  nick: string;
+  online: boolean;
+  server: string;
+  source: string;
+  is_leader: boolean;
+  avatar?: string;
+}
+
+export interface PartyInvite {
+  party_id: string;
+  from: string;
+  from_nick: string;
+  members_count?: number;
+}
+
+export interface PartyMessage {
+  id: number;
+  author: string;
+  nick: string;
+  text: string;
+  system?: boolean;
+  coords?: { x: number; y: number; z: number; dim?: string } | null;
+  ts?: number;
+}
+
+export interface PartyState {
+  id: string;
+  leader: string;
+  members: PartyMember[];
+  messages: PartyMessage[];
+}
+
 export interface AdminUserRecord {
   login: string;
   nick: string;
   email: string;
   role: string;
+  is_superadmin?: boolean;
+  hwid?: string;
+  sub_active?: boolean;
+  sub_until?: number;
   last_ip: string;
   online: boolean;
   source: string;

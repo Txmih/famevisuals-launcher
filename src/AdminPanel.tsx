@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Ban,
+  Cpu,
   Crown,
+  KeyRound,
   Loader2,
   Megaphone,
   MicOff,
@@ -45,7 +47,7 @@ export function AdminPanel({ settings, showToast }: AdminPanelProps) {
     uptime_sec: 0,
   });
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all" | "online" | "banned" | "muted">("all");
+  const [filter, setFilter] = useState<"all" | "online" | "sub" | "banned" | "muted">("all");
   const [loading, setLoading] = useState(false);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [broadcastText, setBroadcastText] = useState("");
@@ -56,7 +58,8 @@ export function AdminPanel({ settings, showToast }: AdminPanelProps) {
   const [cmdLog, setCmdLog] = useState<{ cmd: string; output: string; ts: string }[]>([
     {
       cmd: "help",
-      output: "Введите help для списка команд или управляйте игроками во вкладке «Игроки» в 1 клик.",
+      output:
+        "Команды: givesub <ник> <30d|365d|lifetime>, takesub <ник>, resethwid <ник>, ban, unban, ipban, mute, unmute, kick, setrole, whois, broadcast.",
       ts: new Date().toLocaleTimeString(),
     },
   ]);
@@ -130,6 +133,13 @@ export function AdminPanel({ settings, showToast }: AdminPanelProps) {
     return `${h}ч ${m}м`;
   };
 
+  const formatSubBadge = (u: AdminUserRecord) => {
+    if (!u.sub_active) return null;
+    if (u.sub_until === -1) return "SUB: ∞";
+    const days = Math.max(1, Math.ceil(((u.sub_until || 0) - Date.now()) / 86_400_000));
+    return `SUB: ${days}д`;
+  };
+
   return (
     <div className="mx-auto flex h-full w-full max-w-[960px] flex-col gap-4 pb-6">
       {/* Header */}
@@ -143,7 +153,7 @@ export function AdminPanel({ settings, showToast }: AdminPanelProps) {
             </span>
           </div>
           <p className="mt-0.5 text-xs text-zinc-400">
-            Все зарегистрированные игроки, быстрый мут/анмут, бан/разбан, IP-бан и объявления
+            Выдача подписок, сброс HWID, мут/анмут, бан/разбан, IP-бан и объявления
           </p>
         </div>
 
@@ -256,6 +266,7 @@ export function AdminPanel({ settings, showToast }: AdminPanelProps) {
                 [
                   ["all", "Все"],
                   ["online", "Онлайн"],
+                  ["sub", "С подпиской"],
                   ["muted", "В муте"],
                   ["banned", "В бане"],
                 ] as const
@@ -288,7 +299,9 @@ export function AdminPanel({ settings, showToast }: AdminPanelProps) {
             ) : (
               <div className="space-y-2">
                 {users.map((u) => {
-                  const isSelfAdmin = u.login.toLowerCase() === (settings.globalsLogin || "").toLowerCase();
+                  const isProtectedSuper = u.is_superadmin || u.role === "superadmin" || u.login.toLowerCase() === "txmih";
+                  const isSelf = u.login.toLowerCase() === (settings.globalsLogin || "").toLowerCase();
+                  const subBadge = formatSubBadge(u);
                   return (
                     <div
                       key={u.login}
@@ -307,9 +320,22 @@ export function AdminPanel({ settings, showToast }: AdminPanelProps) {
                               MC: {u.nick}
                             </span>
                           )}
-                          {u.role === "admin" && (
+                          {isProtectedSuper ? (
+                            <span className="rounded border border-amber-400/40 bg-amber-400/20 px-1.5 py-0.5 text-[9px] font-bold text-amber-200">
+                              SUPERADMIN
+                            </span>
+                          ) : u.role === "admin" ? (
                             <span className="rounded border border-amber-400/30 bg-amber-400/15 px-1.5 py-0.5 text-[9px] font-bold text-amber-300">
                               ADMIN
+                            </span>
+                          ) : null}
+                          {subBadge ? (
+                            <span className="rounded border border-emerald-500/30 bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold text-emerald-300">
+                              {subBadge}
+                            </span>
+                          ) : (
+                            <span className="rounded border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[9px] font-medium text-zinc-500">
+                              NO SUB
                             </span>
                           )}
                           {u.muted && (
@@ -330,20 +356,67 @@ export function AdminPanel({ settings, showToast }: AdminPanelProps) {
                         </div>
                         <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-zinc-400">
                           <span>{u.online ? (u.server || u.source) : "Оффлайн"}</span>
+                          {u.hwid && (
+                            <span className="font-mono text-[10px] text-sky-300/80">
+                              · HWID: {u.hwid}
+                            </span>
+                          )}
                           {u.email && <span>· {u.email}</span>}
                           {u.last_ip && <span className="font-mono text-zinc-500">· {u.last_ip}</span>}
                         </div>
                       </div>
 
-                      {!isSelfAdmin && (
+                      {!isProtectedSuper && !isSelf && (
                         <div className="flex flex-wrap items-center gap-1.5">
+                          {/* Subscription Controls */}
+                          <button
+                            type="button"
+                            disabled={busyKey !== null}
+                            onClick={() => void runCmd(`givesub ${u.login} 30d`)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-sky-400/30 bg-sky-500/12 px-2 py-1 text-[10px] font-semibold text-sky-200 transition hover:bg-sky-500/25"
+                          >
+                            <KeyRound className="h-3 w-3" />
+                            +30д
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busyKey !== null}
+                            onClick={() => void runCmd(`givesub ${u.login} lifetime`)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/30 bg-emerald-500/12 px-2 py-1 text-[10px] font-semibold text-emerald-200 transition hover:bg-emerald-500/25"
+                          >
+                            ∞ Саб
+                          </button>
+                          {u.sub_active && (
+                            <button
+                              type="button"
+                              disabled={busyKey !== null}
+                              onClick={() => void runCmd(`takesub ${u.login}`)}
+                              className="rounded-lg border border-red-400/30 bg-red-500/10 px-2 py-1 text-[10px] font-semibold text-red-200 transition hover:bg-red-500/22"
+                            >
+                              -Саб
+                            </button>
+                          )}
+
+                          {/* HWID Reset */}
+                          {u.hwid && (
+                            <button
+                              type="button"
+                              disabled={busyKey !== null}
+                              onClick={() => void runCmd(`resethwid ${u.login}`)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-white/15 bg-white/[0.06] px-2 py-1 text-[10px] font-semibold text-zinc-200 transition hover:bg-white/[0.14]"
+                            >
+                              <Cpu className="h-3 w-3" />
+                              Сброс HWID
+                            </button>
+                          )}
+
                           {/* Mute / Unmute */}
                           {u.muted ? (
                             <button
                               type="button"
                               disabled={busyKey !== null}
                               onClick={() => void runCmd(`unmute ${u.login}`)}
-                              className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/12 px-2.5 py-1 text-[11px] font-semibold text-emerald-300 transition hover:bg-emerald-500/22"
+                              className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/12 px-2 py-1 text-[10px] font-semibold text-emerald-300 transition hover:bg-emerald-500/22"
                             >
                               <Volume2 className="h-3 w-3" />
                               Анмут
@@ -353,11 +426,10 @@ export function AdminPanel({ settings, showToast }: AdminPanelProps) {
                               type="button"
                               disabled={busyKey !== null}
                               onClick={() => void runCmd(`mute ${u.login} 60m`)}
-                              title="Замутить на 60 минут"
-                              className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-200 transition hover:bg-amber-500/20"
+                              className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10px] font-semibold text-amber-200 transition hover:bg-amber-500/20"
                             >
                               <MicOff className="h-3 w-3" />
-                              Мут 1ч
+                              Мут
                             </button>
                           )}
 
@@ -367,7 +439,7 @@ export function AdminPanel({ settings, showToast }: AdminPanelProps) {
                               type="button"
                               disabled={busyKey !== null}
                               onClick={() => void runCmd(`unban ${u.login}`)}
-                              className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/12 px-2.5 py-1 text-[11px] font-semibold text-emerald-300 transition hover:bg-emerald-500/22"
+                              className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/12 px-2 py-1 text-[10px] font-semibold text-emerald-300 transition hover:bg-emerald-500/22"
                             >
                               <UserCheck className="h-3 w-3" />
                               Разбан
@@ -377,7 +449,7 @@ export function AdminPanel({ settings, showToast }: AdminPanelProps) {
                               type="button"
                               disabled={busyKey !== null}
                               onClick={() => void runCmd(`ban ${u.login} perm`)}
-                              className="inline-flex items-center gap-1 rounded-lg border border-red-500/30 bg-red-500/12 px-2.5 py-1 text-[11px] font-semibold text-red-300 transition hover:bg-red-500/22"
+                              className="inline-flex items-center gap-1 rounded-lg border border-red-500/30 bg-red-500/12 px-2 py-1 text-[10px] font-semibold text-red-300 transition hover:bg-red-500/22"
                             >
                               <Ban className="h-3 w-3" />
                               Бан
@@ -391,7 +463,7 @@ export function AdminPanel({ settings, showToast }: AdminPanelProps) {
                                 type="button"
                                 disabled={busyKey !== null}
                                 onClick={() => void runCmd(`unipban ${u.last_ip}`)}
-                                className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300 transition hover:bg-emerald-500/20"
+                                className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold text-emerald-300 transition hover:bg-emerald-500/20"
                               >
                                 <ShieldCheck className="h-3 w-3" />
                                 Снять IP
@@ -401,20 +473,19 @@ export function AdminPanel({ settings, showToast }: AdminPanelProps) {
                                 type="button"
                                 disabled={busyKey !== null}
                                 onClick={() => void runCmd(`ipban ${u.login} perm`)}
-                                className="inline-flex items-center gap-1 rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-[11px] font-semibold text-red-200 transition hover:bg-red-500/20"
+                                className="inline-flex items-center gap-1 rounded-lg border border-red-500/30 bg-red-500/10 px-2 py-1 text-[10px] font-semibold text-red-200 transition hover:bg-red-500/20"
                               >
                                 <ShieldAlert className="h-3 w-3" />
                                 IP-бан
                               </button>
                             ))}
 
-                          {/* Kick if online */}
                           {u.online && (
                             <button
                               type="button"
                               disabled={busyKey !== null}
                               onClick={() => void runCmd(`kick ${u.login}`)}
-                              className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[11px] font-medium text-zinc-200 transition hover:bg-white/[0.12]"
+                              className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.05] px-2 py-1 text-[10px] font-medium text-zinc-200 transition hover:bg-white/[0.12]"
                             >
                               <UserX className="h-3 w-3" />
                               Кик
@@ -456,7 +527,9 @@ export function AdminPanel({ settings, showToast }: AdminPanelProps) {
                   <span className="text-zinc-500">[{entry.ts}]</span>
                   <span>$ {entry.cmd}</span>
                 </div>
-                <pre className="mt-1 whitespace-pre-wrap break-words text-zinc-200">{entry.output}</pre>
+                <pre className="mt-1 whitespace-pre-wrap break-words text-zinc-200">
+                  {entry.output}
+                </pre>
               </div>
             ))}
           </div>
@@ -477,7 +550,7 @@ export function AdminPanel({ settings, showToast }: AdminPanelProps) {
               type="text"
               value={cmdInput}
               onChange={(e) => setCmdInput(e.target.value)}
-              placeholder="Введите команду (help, ban <ник> 60m, mute <ник> 30m, unmute <ник>, ipban <ник>)..."
+              placeholder="givesub <ник> 30d | takesub <ник> | resethwid <ник> | ban <ник> | setrole <ник> admin..."
               className="flex-1 rounded-xl border border-white/10 bg-black/60 px-3.5 py-2.5 font-mono text-xs text-white placeholder-zinc-500 outline-none focus:border-amber-400/40"
             />
             <button

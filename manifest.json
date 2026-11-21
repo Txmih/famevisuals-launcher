@@ -1,14 +1,14 @@
 {
-  "version": "2.6.6",
+  "version": "2.6.7",
   "minecraftVersion": "1.21.11",
   "loader": "fabric",
   "loaderVersion": "0.20.1",
   "files": [
     {
       "name": "FameVisuals-1.21.11.jar",
-      "url": "https://github.com/Txmih/famevisuals-launcher/releases/download/v1.3.6/FameVisuals-1.21.11.jar",
-      "sha256": "dc88f9b8fe3f267360ade46e3ca4325d73bff8064ad636875debd72e2659fca2",
-      "size": 31138869,
+      "url": "https://github.com/Txmih/famevisuals-launcher/releases/download/v1.3.7/FameVisuals-1.21.11.jar",
+      "sha256": "9d521b536f1bae9ab12a649468d533d193575b364f64c3702923309b7d7abb67",
+      "size": 31233956,
       "required": true
     },
     {
@@ -16,13 +16,6 @@
       "url": "https://github.com/Txmih/famevisuals-launcher/releases/download/v1.2.0/fabric-api-0.141.6+1.21.11.jar",
       "sha256": "bdff7fd7e220085cfad2ff9b1f40dde6534ae0b96cf378f97a374bc54cb9ed0f",
       "size": 2426039,
-      "required": true
-    },
-    {
-      "name": "ViaFabricPlus-4.4.15.jar",
-      "url": "https://cdn.modrinth.com/data/rIC2XJV4/versions/RM6hveoK/ViaFabricPlus-4.4.15.jar",
-      "sha256": "002308aba61f85ff236f9cda391e93c158a9b197674c5a1c75db2afd185f224e",
-      "size": 27015009,
       "required": true
     }
   ]

@@ -36,6 +36,7 @@ import { AuthGate } from "./AuthGate";
 import { FriendsPanel } from "./FriendsPanel";
 import { getBackendHttpBase, getBackendWsUrl } from "./globalsEndpoint";
 import { ProfileTab } from "./ProfileTab";
+import { ShopTab } from "./ShopTab";
 import { TRANSLATIONS } from "./i18n";
 import type {
   AccountType,
@@ -47,6 +48,9 @@ import type {
   LaunchProgressPayload,
   MicrosoftAccountProfile,
   ModrinthProject,
+  PartyInvite,
+  PartyMessage,
+  PartyState,
   SystemInfo,
   TabId,
 } from "./types";
@@ -128,6 +132,15 @@ function IconFriends({ className = "h-[19px] w-[19px]" }: { className?: string }
       <circle cx="9" cy="7" r="4" />
       <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+
+function IconShop({ className = "h-[19px] w-[19px]" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M6 7h12l1 13H5L6 7z" />
+      <path d="M9 7V6a3 3 0 0 1 6 0v1" />
     </svg>
   );
 }
@@ -284,7 +297,7 @@ export function App() {
   const [systemInfo, setSystemInfo] = useState<SystemInfo>({
     totalRamMb: 16384,
     defaultGameDir: "",
-    launcherVersion: "1.3.6",
+    launcherVersion: "1.3.7",
   });
   const [settings, setSettings] = useState<LauncherSettings>(DEFAULT_SETTINGS);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -318,7 +331,7 @@ export function App() {
   const [updatePercent, setUpdatePercent] = useState(0);
   const [checkingUpdater, setCheckingUpdater] = useState(false);
 
-  // Account, profile & real-time friends state (WebSocket + HTTP REST)
+  // Account, profile, subscription, HWID, friends & party real-time state
   const [globalsConnected, setGlobalsConnected] = useState(false);
   const [globalsTotalOnline, setGlobalsTotalOnline] = useState(0);
   const [globalsFriends, setGlobalsFriends] = useState<GlobalsFriend[]>([]);
@@ -326,6 +339,12 @@ export function App() {
   const [globalsRole, setGlobalsRole] = useState("user");
   const [globalsAvatar, setGlobalsAvatar] = useState("");
   const [globalsEmail, setGlobalsEmail] = useState("");
+  const [globalsHasEmail, setGlobalsHasEmail] = useState(false);
+  const [globalsHwid, setGlobalsHwid] = useState("");
+  const [globalsSubActive, setGlobalsSubActive] = useState(false);
+  const [globalsSubUntil, setGlobalsSubUntil] = useState(0);
+  const [globalsParty, setGlobalsParty] = useState<PartyState | null>(null);
+  const [globalsPartyInvites, setGlobalsPartyInvites] = useState<PartyInvite[]>([]);
 
   const saveTimeoutRef = useRef<number | null>(null);
   const searchTimeoutRef = useRef<number | null>(null);
@@ -813,6 +832,12 @@ export function App() {
         setGlobalsRole("user");
         setGlobalsAvatar("");
         setGlobalsEmail("");
+        setGlobalsHasEmail(false);
+        setGlobalsHwid("");
+        setGlobalsSubActive(false);
+        setGlobalsSubUntil(0);
+        setGlobalsParty(null);
+        setGlobalsPartyInvites([]);
         return;
       }
       const data = await res.json();
@@ -823,6 +848,12 @@ export function App() {
         setGlobalsRole(String(data.role || "user"));
         setGlobalsAvatar(String(data.avatar || ""));
         setGlobalsEmail(String(data.email || ""));
+        setGlobalsHasEmail(Boolean(data.has_email || data.email));
+        setGlobalsHwid(String(data.hwid || ""));
+        setGlobalsSubActive(Boolean(data.sub_active));
+        setGlobalsSubUntil(Number(data.sub_until || 0));
+        setGlobalsParty(data.party || null);
+        setGlobalsPartyInvites(data.party_invites || []);
       }
     } catch {
       // ignore offline
@@ -871,8 +902,23 @@ export function App() {
               setGlobalsRequests(msg.list);
             } else if (msg.t === "online") {
               setGlobalsTotalOnline(Number(msg.total || 0));
-            } else if (msg.t === "auth" && msg.ok === true && msg.role) {
-              setGlobalsRole(String(msg.role));
+            } else if (msg.t === "party") {
+              setGlobalsParty(msg.party || null);
+              setGlobalsPartyInvites(Array.isArray(msg.invites) ? msg.invites : []);
+            } else if (msg.t === "party_chat" && msg.msg) {
+              const incoming = msg.msg as PartyMessage;
+              setGlobalsParty((prev) => {
+                if (!prev) return prev;
+                if (prev.messages.some((m) => m.id === incoming.id)) return prev;
+                return {
+                  ...prev,
+                  messages: [...prev.messages.slice(-79), incoming],
+                };
+              });
+            } else if (msg.t === "auth" && msg.ok === true) {
+              if (msg.role) setGlobalsRole(String(msg.role));
+              if (typeof msg.sub_active === "boolean") setGlobalsSubActive(msg.sub_active);
+              if (typeof msg.sub_until === "number") setGlobalsSubUntil(msg.sub_until);
             } else if (msg.t === "auth" && msg.ok === false) {
               updateSettings({ globalsLogin: null, globalsToken: null });
               setGlobalsFriends([]);
@@ -925,7 +971,11 @@ export function App() {
   ]);
 
   const isAdminUser =
-    globalsRole === "admin" || (settings.globalsLogin || "").toLowerCase() === "txmih";
+    globalsRole === "superadmin" ||
+    globalsRole === "admin" ||
+    (settings.globalsLogin || "").toLowerCase() === "txmih";
+
+  const friendsBadgeCount = globalsRequests.length + globalsPartyInvites.length;
 
   const navItems: {
     id: TabId;
@@ -938,7 +988,17 @@ export function App() {
       id: "friends",
       label: t.navFriends,
       icon: IconFriends,
-      badge: globalsRequests.length > 0 ? globalsRequests.length : undefined,
+      badge: friendsBadgeCount > 0 ? friendsBadgeCount : undefined,
+    },
+    {
+      id: "shop",
+      label:
+        settings.language === "ru"
+          ? "Магазин"
+          : settings.language === "pl"
+            ? "Sklep"
+            : "Shop",
+      icon: IconShop,
     },
     {
       id: "profile",
@@ -1758,7 +1818,7 @@ export function App() {
             </div>
           )}
 
-          {/* ======================== FRIENDS TAB ======================== */}
+          {/* ======================== FRIENDS & PARTY TAB ======================== */}
           {activeTab === "friends" && (
             <FriendsPanel
               language={settings.language}
@@ -1767,8 +1827,23 @@ export function App() {
               totalOnline={globalsTotalOnline}
               friends={globalsFriends}
               requests={globalsRequests}
+              party={globalsParty}
+              partyInvites={globalsPartyInvites}
               showToast={showToast}
               onRefresh={refreshGlobalsFriends}
+              onPartyUpdated={(p, invs) => {
+                setGlobalsParty(p);
+                setGlobalsPartyInvites(invs);
+              }}
+            />
+          )}
+
+          {/* ======================== SHOP TAB ======================== */}
+          {activeTab === "shop" && (
+            <ShopTab
+              language={settings.language}
+              subActive={globalsSubActive}
+              subUntil={globalsSubUntil}
             />
           )}
 
@@ -1780,11 +1855,20 @@ export function App() {
               userRole={globalsRole}
               userAvatar={globalsAvatar}
               userEmail={globalsEmail}
+              hasEmail={globalsHasEmail}
+              userHwid={globalsHwid}
+              subActive={globalsSubActive}
+              subUntil={globalsSubUntil}
               friendsCount={globalsFriends.length}
               onlineFriendsCount={globalsFriends.filter((f) => f.online).length}
               totalOnline={globalsTotalOnline}
               showToast={showToast}
               onAvatarUpdated={(newB64) => setGlobalsAvatar(newB64)}
+              onEmailUpdated={(maskedEmail) => {
+                setGlobalsEmail(maskedEmail);
+                setGlobalsHasEmail(true);
+              }}
+              onOpenShop={() => setActiveTab("shop")}
               onSignOut={() => {
                 updateSettings({ globalsLogin: null, globalsToken: null });
                 setGlobalsFriends([]);
@@ -1792,6 +1876,12 @@ export function App() {
                 setGlobalsRole("user");
                 setGlobalsAvatar("");
                 setGlobalsEmail("");
+                setGlobalsHasEmail(false);
+                setGlobalsHwid("");
+                setGlobalsSubActive(false);
+                setGlobalsSubUntil(0);
+                setGlobalsParty(null);
+                setGlobalsPartyInvites([]);
                 setGlobalsConnected(false);
                 setActiveTab("home");
               }}

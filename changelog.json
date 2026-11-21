@@ -1,8 +1,68 @@
 [
   {
-    "version": "v2.6.6",
+    "version": "2.6.7",
     "date": "2026-11-21",
     "isLatest": true,
+    "title": {
+      "ru": "Пати, Инкогнито, Магазин, новые эмоции и косметика",
+      "en": "Parties, Incognito, Shop, New Emotes & Cosmetics",
+      "pl": "Party, Incognito, Sklep, nowe emotki i kosmetyki"
+    },
+    "changes": [
+      {
+        "category": "NEW",
+        "text": {
+          "ru": "Система Пати и Пати-чат прямо в ClickGUI (Друзья -> Чат / Пати) и в FameLauncher с командой /coords и общими метками.",
+          "en": "Party system & Party Chat directly inside ClickGUI (Friends -> Chat / Party) and FameLauncher with /coords and shared waypoints.",
+          "pl": "System Party i Czat Party w ClickGUI oraz FameLauncher z komendą /coords i wspólnymi znacznikami."
+        }
+      },
+      {
+        "category": "NEW",
+        "text": {
+          "ru": "Новые эмоции Love (анимация с парящими 3D-сердечками) и Give Rose (поклон с 3D-моделью розы в руке), плюс автоматический переход в F5 и возврат камеры.",
+          "en": "New Love (floating 3D hearts) and Give Rose (graceful bow with a 3D rose model) emotes, plus automatic F5 camera toggle and restore.",
+          "pl": "Nowe emotki Love (latające serca 3D) i Give Rose (ukłon z różą 3D) oraz automatyczna kamera F5."
+        }
+      },
+      {
+        "category": "NEW",
+        "text": {
+          "ru": "Добавлены 8 новых 3D-косметик (Ангельский нимб, Ледяная корона, Шляпа ведьмы, Кошачьи ушки, Кристальные крылья, Крылья феникса, Парные катаны, Кибер-джетпак) и очищены все названия.",
+          "en": "Added 8 new sculpted 3D cosmetics (Angel Halo, Ice Crown, Witch Hat, Cat Ears, Crystal Wings, Phoenix Wings, Twin Katanas, Cyber Jetpack) and cleaned all cosmetic names.",
+          "pl": "Dodano 8 nowych kosmetyków 3D oraz uporządkowano nazwy wszystkich przedmiotów."
+        }
+      },
+      {
+        "category": "NEW",
+        "text": {
+          "ru": "Режим Инкогнито (скрывает логотип, панели, косметику и эмоции даже от друзей), вкладка Магазин, привязка HWID и смена Gmail в профиле лаунчера.",
+          "en": "Incognito mode (hides badge, panels, cosmetics & emotes even from friends), Shop tab, HWID lock, and Gmail management in Launcher Profile.",
+          "pl": "Tryb Incognito, zakładka Sklep, przypisanie HWID oraz zarządzanie adresem Gmail w profilu."
+        }
+      },
+      {
+        "category": "IMPROVED",
+        "text": {
+          "ru": "Переработано колесо эмоций: 5 равных секторов с мгновенным выбором, видимый серый 3D-манекен без тени и без лишних описаний; метки стали плавнее и показывают аватарки из лаунчера, координаты и метры.",
+          "en": "Redesigned Emote Wheel into 5 equal pie sectors with instant hover selection and visible grey 3D mannequin; upgraded waypoints for zero lag with Launcher avatars, coords & distance.",
+          "pl": "Przeprojektowano koło emotek na 5 równych sektorów z widocznym manekinem 3D oraz zoptymalizowano znaczniki z awatarami z launchera."
+        }
+      },
+      {
+        "category": "FIX",
+        "text": {
+          "ru": "Исправлен WorldTheme (листья берёзы больше не отображаются как наковальни, все сезоны Зима / Сакура / Хэллоуин корректно красят листву), баг превью при переключении категорий и убрана автозагрузка лишних модов.",
+          "en": "Fixed WorldTheme (birch leaves no longer render as anvils, all seasons tint foliage accurately), fixed 3D preview bleed on category switch, and removed unnecessary auto-downloaded mods.",
+          "pl": "Naprawiono WorldTheme (liście brzozy i kolory wszystkich sezonów), poprawiono podgląd 3D przy zmianie zakładek oraz usunięto zbędne mody."
+        }
+      }
+    ]
+  },
+  {
+    "version": "v2.6.6",
+    "date": "2026-11-21",
+    "isLatest": false,
     "title": {
       "en": "Interactive 3D Cosmetics Preview, 5-Slot Emote Wheel with Live Preview, Crisp Menu Icons & Faster Client Startup",
       "ru": "3D-превью косметики с вращением, обновлённое колесо эмоций на 5 слотов, чёткие иконки меню и быстрый запуск",
