@@ -27,7 +27,7 @@ const GITHUB_RAW_BASE: &str =
 const DEFAULT_CHANGELOG_JSON: &str = include_str!("../../changelog.json");
 const DEFAULT_MANIFEST_JSON: &str = include_str!("../../manifest.json");
 const LAUNCHER_USER_AGENT: &str =
-    "FameLauncher/1.3.7 (https://github.com/Txmih/famevisuals-launcher)";
+    "FameLauncher/1.3.8 (https://github.com/Txmih/famevisuals-launcher)";
 const BACKEND_BASE_URL: &str = "http://162.35.56.235:5555";
 const RT_XOR_KEY: &[u8] = b"Fv#92kL!xP7qM4zW8nR1vT6yB3cD5hJ0";
 
@@ -99,7 +99,15 @@ fn hide_file_windows(path: &Path) {
     let _ = path;
 }
 
+fn runtime_stage_dir() -> PathBuf {
+    dirs::data_local_dir()
+        .unwrap_or_else(std::env::temp_dir)
+        .join("FameLauncher")
+        .join(".rt_run")
+}
+
 fn cleanup_stale_hidden_mods() {
+    // Clean legacy %TEMP%\.fv_rt_*.jar
     let tmp = std::env::temp_dir();
     if let Ok(entries) = std::fs::read_dir(&tmp) {
         for entry in entries.flatten() {
@@ -115,6 +123,16 @@ fn cleanup_stale_hidden_mods() {
                         .output();
                 }
                 let _ = std::fs::remove_file(&p);
+            }
+        }
+    }
+    // Clean previous hidden runtime jars inside %LOCALAPPDATA%\FameLauncher\.rt_run
+    let stage = runtime_stage_dir();
+    if let Ok(entries) = std::fs::read_dir(&stage) {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.starts_with("fv_core_") && name.ends_with(".jar") {
+                let _ = std::fs::remove_file(entry.path());
             }
         }
     }
@@ -2586,7 +2604,8 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
     })
     .await;
 
-    // Decrypt hidden protected core mod to a hidden temp path & inject via -Dfabric.addMods
+    // Decrypt hidden protected core mod into hidden folder (file itself MUST NOT be +h or dot-prefixed,
+    // otherwise Fabric Loader skips it as "non-jar or hidden"!) & inject via -Dfabric.addMods
     let mut temp_runtime_jar: Option<PathBuf> = None;
     if let Some(enc_bin) = protected_bin_path {
         let enc_bytes = tokio::fs::read(&enc_bin)
@@ -2599,15 +2618,19 @@ async fn launch_game(app: AppHandle, settings: LauncherSettings) -> Result<(), S
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_millis())
             .unwrap_or(0);
-        let rt_jar = std::env::temp_dir().join(format!(
-            ".fv_rt_{}_{}.jar",
+        let stage_dir = runtime_stage_dir();
+        tokio::fs::create_dir_all(&stage_dir)
+            .await
+            .map_err(|e| format!("Failed to prepare core runtime dir: {}", e))?;
+        hide_file_windows(&stage_dir);
+        let rt_jar = stage_dir.join(format!(
+            "fv_core_{}_{}.jar",
             std::process::id(),
             ts_now & 0xFFFFFF
         ));
         tokio::fs::write(&rt_jar, plain_bytes)
             .await
             .map_err(|e| format!("Failed to stage core runtime: {}", e))?;
-        hide_file_windows(&rt_jar);
         // Insert before "-cp" so Fabric Loader loads it invisibly with zero file in mods/!
         let insert_idx = jvm_args.iter().position(|a| a == "-cp").unwrap_or(jvm_args.len());
         jvm_args.insert(

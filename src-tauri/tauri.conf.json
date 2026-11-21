@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/schema.json",
   "productName": "FameLauncher",
-  "version": "1.3.7",
+  "version": "1.3.8",
   "identifier": "com.famevisuals.launcher",
   "build": {
     "beforeDevCommand": "npm run dev",
